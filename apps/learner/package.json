@@ -2,10 +2,16 @@
   "name": "@fundi/learner",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "node -e \"console.log('[@fundi/learner] no-op build')\"",
-    "lint": "node -e \"console.log('[@fundi/learner] no-op lint')\"",
+    "lint": "eslint . --max-warnings=0",
     "test": "node -e \"console.log('[@fundi/learner] no-op test')\"",
     "dev": "node -e \"console.log('[@fundi/learner] no-op dev')\""
+  },
+  "devDependencies": {
+    "@fundi/config": "workspace:*",
+    "eslint": "10.7.0",
+    "typescript": "6.0.3"
   }
 }
