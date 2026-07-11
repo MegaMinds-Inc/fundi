@@ -5,7 +5,9 @@
 
 # Sprint 0 — Repo Scaffolding (Fundi Monorepo)
 
-**Status in this repo:** Tasks 1–4 and 7 are done (see `packages/docs/features/0001-sprint-0-foundation.md` and `0002-task7-frontend-pwas.md`). Tasks 5, 6, 8 remain — Task 6 (docker-compose) is blocked on Docker Desktop's WSL integration not being enabled for this distro; Task 5 (Prisma schema) depends on Task 6's local Postgres; Task 8 (root README/CONTRIBUTING) is unblocked but not yet started.
+**Status in this repo:** Tasks 1–4 and 7 are done and marked `shipped` on ClickUp as of 2026-07-11 (see `packages/docs/features/0001-sprint-0-foundation.md` and `0002-task7-frontend-pwas.md`). Tasks 5, 6, 8 remain — Task 6 (docker-compose) is blocked on Docker Desktop's WSL integration not being enabled for this distro; Task 5 (Prisma schema) depends on Task 6's local Postgres; Task 8 (root README/CONTRIBUTING) is unblocked but not yet started. The parent umbrella task (86cap6x42) stays `backlog` on ClickUp until all 8 subtasks are done.
+
+**Local-first workflow (going forward):** completed tasks get marked here first (this file). ClickUp only gets updated — and any new sprint tasks pulled in — when explicitly asked to sync.
 
 Umbrella task for all repo scaffolding work ahead of pipeline configuration, per the Technical Architecture ADR (v0.5).
 
@@ -19,7 +21,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 1. Monorepo skeleton — pnpm workspaces + Turborepo ✅ done
+## 1. Monorepo skeleton — pnpm workspaces + Turborepo ✅ shipped
 
 **Reference:** ADR-012, ADR-013
 
@@ -42,7 +44,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 2. Shared tooling config — packages/config ✅ done
+## 2. Shared tooling config — packages/config ✅ shipped
 
 **Reference:** ADR-013 (Neutral consequence — config as a proper workspace package, not root-level relative-path files)
 
@@ -65,7 +67,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 3. NestJS modular monolith skeleton — module boundaries ✅ done
+## 3. NestJS modular monolith skeleton — module boundaries ✅ shipped
 
 **Reference:** ADR-002, ADR-006, ADR-011 (§1: "product logic never talks to WhatsApp directly," "no direct LLM API calls outside the AI module")
 
@@ -87,7 +89,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 4. Module boundary enforcement — dependency-cruiser rule ✅ done
+## 4. Module boundary enforcement — dependency-cruiser rule ✅ shipped
 
 **Reference:** ADR-002 (Negative consequence: "a careless developer can still bypass module boundaries if not enforced in code review / lint rules; needs a lightweight architectural test")
 
@@ -154,7 +156,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 7. Two PWA skeletons — apps/creator, apps/learner ✅ done
+## 7. Two PWA skeletons — apps/creator, apps/learner ✅ shipped
 
 **Reference:** ADR-012
 

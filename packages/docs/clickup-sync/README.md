@@ -10,6 +10,15 @@ ClickUp MCP tools, which only exist inside an agent session, not a standalone No
 re-sync: ask an agent to re-fetch the relevant ClickUp doc/task IDs (linked in each file's header)
 and overwrite the file.
 
+**Workflow — local-first, ClickUp on demand:**
+1. As tasks get completed, mark them in the relevant `sprints/sprint-N-*.md` file here first
+   (e.g. `✅ shipped` on the task heading) — this is the working record during a session.
+2. ClickUp itself only gets updated when explicitly asked to "sync with ClickUp." At that point:
+   push local completions to ClickUp (set task status to `shipped`), and pull down any new sprint
+   tasks that were added there since the last sync.
+3. This keeps ClickUp writes deliberate/batched rather than one API call per completed task, and
+   means the local docs are always the fastest thing to check for current status.
+
 ## `product/` — Product Documentations (ClickUp folder)
 
 | File | Covers |
@@ -33,7 +42,7 @@ and overwrite the file.
 
 | File | Covers | Status |
 |---|---|---|
-| [`sprint-0-repo-scaffolding.md`](./sprints/sprint-0-repo-scaffolding.md) | Repo scaffolding (monorepo, shared config, NestJS skeleton, boundary enforcement, PWAs, docs) | Tasks 1-4, 7 done; 5, 6, 8 remain |
+| [`sprint-0-repo-scaffolding.md`](./sprints/sprint-0-repo-scaffolding.md) | Repo scaffolding (monorepo, shared config, NestJS skeleton, boundary enforcement, PWAs, docs) | Tasks 1-4, 7 `shipped` (on ClickUp too, as of 2026-07-11); 5, 6, 8 remain |
 | [`sprint-1-identity-org-design-system.md`](./sprints/sprint-1-identity-org-design-system.md) | Identity/OTP auth, org creation, design system tokens+components | Not started |
 | [`sprint-2-program-access-enrollment.md`](./sprints/sprint-2-program-access-enrollment.md) | Seeded programs, invite/approve learners, cohort roster | Not started |
 | [`sprint-3-learner-progress-lessons.md`](./sprints/sprint-3-learner-progress-lessons.md) | Learner progress home, lesson viewer, assessments, help request | Not started |
