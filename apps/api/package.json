@@ -3,9 +3,27 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "node -e \"console.log('[@fundi/api] no-op build')\"",
-    "lint": "node -e \"console.log('[@fundi/api] no-op lint')\"",
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
     "test": "node -e \"console.log('[@fundi/api] no-op test')\"",
-    "dev": "node -e \"console.log('[@fundi/api] no-op dev')\""
+    "dev": "node --watch -r ts-node/register src/main.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.1.28",
+    "@nestjs/core": "11.1.28",
+    "@nestjs/platform-express": "11.1.28",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@fundi/config": "workspace:*",
+    "@nestjs/testing": "11.1.28",
+    "@types/express": "5.0.6",
+    "@types/node": "24.9.1",
+    "eslint": "10.7.0",
+    "eslint-import-resolver-typescript": "4.4.5",
+    "eslint-plugin-import-x": "4.17.1",
+    "ts-node": "10.9.2",
+    "typescript": "6.0.3"
   }
 }
