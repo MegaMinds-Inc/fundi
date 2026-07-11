@@ -1,0 +1,199 @@
+> **Source:** ClickUp — Platform Infrastructure & DevOps list ([link](https://app.clickup.com/t/86cap6x42))
+> **Synced:** 2026-07-11 — manual snapshot, not live. Re-sync by asking an agent to re-run this process.
+
+---
+
+# Sprint 0 — Repo Scaffolding (Fundi Monorepo)
+
+**Status in this repo:** Tasks 1–4 and 7 are done (see `packages/docs/features/0001-sprint-0-foundation.md` and `0002-task7-frontend-pwas.md`). Tasks 5, 6, 8 remain — Task 6 (docker-compose) is blocked on Docker Desktop's WSL integration not being enabled for this distro; Task 5 (Prisma schema) depends on Task 6's local Postgres; Task 8 (root README/CONTRIBUTING) is unblocked but not yet started.
+
+Umbrella task for all repo scaffolding work ahead of pipeline configuration, per the Technical Architecture ADR (v0.5).
+
+**Goal:** empty `MegaMinds-Inc/fundi` repo → a scaffolded monorepo that enforces the ADR's architectural boundaries (module isolation, org-scoping, workspace dependency discipline) by construction, ready for CI/pipeline config and first feature work.
+
+**Order matters** — subtasks are sequenced; later ones depend on earlier ones being merged first (see each subtask's Depends-on note).
+
+**Out of scope for Sprint 0:** BSP/WhatsApp integration (holding per direction), CI/CD pipeline config itself (this is everything _before_ that), any actual feature/domain logic beyond the schema skeleton.
+
+Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-002, ADR-006, ADR-008, ADR-009, ADR-012, ADR-013.
+
+* * *
+
+## 1. Monorepo skeleton — pnpm workspaces + Turborepo ✅ done
+
+**Reference:** ADR-012, ADR-013
+
+**Objective:** Initialize the workspace shape all other apps/packages will slot into.
+
+**Do:**
+*   `pnpm-workspace.yaml` declaring `apps/*` and `packages/*`
+*   `turbo.json` with pipeline tasks: `build`, `lint`, `test`, `dev` (declare correct `dependsOn` graph so `packages/*` build before `apps/*`)
+*   Root `package.json` with workspace scripts (`pnpm turbo build`, etc.)
+*   Empty placeholder folders: `apps/api`, `apps/creator`, `apps/learner`, `packages/ui`, `packages/config`, `packages/types` (each with a minimal `package.json` and `README.md` stub — no real code yet)
+*   `.gitignore` (node_modules, .turbo, .env, dist/build outputs)
+
+**Acceptance criteria:**
+- [x] `pnpm install` succeeds from repo root with no errors
+- [x] `pnpm turbo build` runs across all placeholder packages without failure (even as no-ops)
+- [x] Adding a dependency to one `apps/*` package does NOT make it resolvable from another package without an explicit declaration
+- [x] Repo root has no `package-lock.json` or `yarn.lock` — only `pnpm-lock.yaml`
+
+**Depends on:** nothing — this is the first task.
+
+* * *
+
+## 2. Shared tooling config — packages/config ✅ done
+
+**Reference:** ADR-013 (Neutral consequence — config as a proper workspace package, not root-level relative-path files)
+
+**Objective:** One shared source of truth for lint/format/TS config, extended by every app and package — not root-level files referenced by path.
+
+**Do:**
+*   `packages/config` as a real workspace package (own `package.json`)
+*   Base ESLint config (with a NestJS variant and a Next.js/React variant if rule sets diverge)
+*   Base `tsconfig.base.json`
+*   Shared Prettier config
+*   Each `apps/*` and `packages/*` package `extend`s from `packages/config` via `workspace:*`
+
+**Acceptance criteria:**
+- [x] `packages/config` has its own `package.json` and is referenced via `workspace:*`, not relative paths
+- [x] Every app/package's `tsconfig.json` extends `packages/config`'s base config
+- [x] `pnpm turbo lint` runs cleanly against the placeholder apps/packages
+- [x] A deliberately-introduced lint violation in a placeholder file is caught by `pnpm turbo lint`
+
+**Depends on:** Task 1 (monorepo skeleton must exist first).
+
+* * *
+
+## 3. NestJS modular monolith skeleton — module boundaries ✅ done
+
+**Reference:** ADR-002, ADR-006, ADR-011 (§1: "product logic never talks to WhatsApp directly," "no direct LLM API calls outside the AI module")
+
+**Objective:** `apps/api` structured so the architectural boundaries are visible in the folder tree, not just convention — before any real business logic is written.
+
+**Do:**
+*   NestJS app bootstrap in `apps/api`
+*   One Nest module per domain area, each with an explicit barrel/index export and nothing else importable from outside: `programs`, `enrollment`, `scheduling`, `messaging` (channel abstraction lives here — no WhatsApp specifics yet, just the module + interface shape), `ai` (interface shape only, no real LLM call yet), `payments` (stub module, per §4.12 deferred)
+*   Root `AppModule` wiring all of the above
+*   No cross-module imports of internals — only the barrel export is importable
+
+**Acceptance criteria:**
+- [x] `apps/api` boots locally (`pnpm --filter api dev`) and responds on a health-check route
+- [x] Each domain module has exactly one exported public interface (index/barrel file); internal providers are not exported
+- [x] A deliberate test import reaching into another module's internals (bypassing its barrel) fails at compile/lint time
+- [x] `messaging` and `ai` modules are clearly the only places allowed to reference an external SDK (WhatsApp/LLM)
+
+**Depends on:** Task 1 (monorepo skeleton), Task 2 (shared tsconfig/lint).
+
+* * *
+
+## 4. Module boundary enforcement — dependency-cruiser rule ✅ done
+
+**Reference:** ADR-002 (Negative consequence: "a careless developer can still bypass module boundaries if not enforced in code review / lint rules; needs a lightweight architectural test")
+
+**Objective:** Make cross-module boundary violations fail CI automatically — this was explicitly flagged in the ADR as a risk that needs enforcement, not convention.
+
+**Do:**
+*   Add `dependency-cruiser` (or equivalent) to `apps/api`
+*   Rule set: no module may import from another module's internals — only barrel/index exports are valid import targets
+*   Rule set: no file outside `messaging` may import a WhatsApp/Meta SDK; no file outside `ai` may import an LLM provider SDK
+*   Wire as an npm script (`pnpm --filter api boundaries`) runnable standalone, ready to be added to CI in the pipeline-config phase
+
+**Acceptance criteria:**
+- [x] Running the boundary check against Task 3's clean skeleton passes
+- [x] A deliberately introduced violation (direct cross-module internal import) fails the check with a clear error
+- [x] A deliberately introduced direct WhatsApp/LLM SDK import outside `messaging`/`ai` fails the check
+- [x] Script is documented in `apps/api/README.md` so it's discoverable ahead of pipeline config wiring it into CI
+
+**Depends on:** Task 3 (module skeleton must exist to write rules against).
+
+* * *
+
+## 5. Prisma schema + first migration — org-scoped domain model ⏳ not started
+
+**Reference:** §3 (Core domain model), ADR-006, ADR-008
+
+**Objective:** Domain model as the real first migration, not a placeholder — every later feature builds on this schema.
+
+**Do:**
+*   Prisma schema in `apps/api` covering: Organisation, Mentor, Program, Module, Lesson, Cohort, Enrollment, Learner, Progress, Assessment, Signal, Message, MessageTemplate, Channel, DripJob (§3 entity table + enums: Program shape, Program visibility, Lesson type, Enrollment state, Signal type)
+*   `organisation_id` required column on every tenant-scoped table (ADR-008)
+*   Repository base class or Prisma middleware that auto-injects the org filter on every query — this must be the enforced pattern, not left to individual query authors (ADR-008 Negative consequence)
+*   First migration generated and committed
+
+**Acceptance criteria:**
+- [ ] `prisma migrate dev` runs clean against a local Postgres instance
+- [ ] Every tenant-scoped table has `organisation_id` as a required (non-nullable) column
+- [ ] A test that queries via the repository base class WITHOUT an org context throws/fails, rather than silently returning cross-tenant data
+- [ ] A test that seeds two orgs' data and queries as Org A confirms zero rows from Org B are returned
+- [ ] Enums match §3 exactly (Program shape, visibility; Lesson type; Enrollment state; Signal type)
+
+**Depends on:** Task 3 (needs `apps/api` NestJS structure to live in), Task 6 (needs local Postgres via docker-compose to actually run migrations against).
+
+* * *
+
+## 6. Local dev environment — docker-compose (Postgres + Redis) ⏳ blocked
+
+**Reference:** ADR-006, ADR-009
+
+**Blocked:** Docker Desktop's WSL integration is not enabled for the Ubuntu-22.04 distro this repo is developed in — the `docker` command in WSL is a stub telling the user to enable it in Docker Desktop settings. This is a one-time Windows-host GUI action, not something an agent can do from the WSL shell.
+
+**Objective:** Every engineer's local setup matches what Prisma/BullMQ expect, without needing cloud infra to develop.
+
+**Do:**
+*   Root `docker-compose.yml` with `postgres` and `redis` services, sane default ports/credentials for local dev
+*   `.env.example` for `apps/api` with `DATABASE_URL` / `REDIS_URL` pointing at the compose services
+*   One-liner documented in README: `docker compose up -d` → app connects
+
+**Acceptance criteria:**
+- [ ] `docker compose up -d` from repo root brings up Postgres + Redis with no manual config
+- [ ] `apps/api` connects to both using only `.env` values copied from `.env.example`
+- [ ] Documented teardown/reset instructions (e.g., `docker compose down -v` to reset local DB state)
+
+**Depends on:** Task 1 (monorepo skeleton). Independent of Tasks 2–4 — can run in parallel.
+
+* * *
+
+## 7. Two PWA skeletons — apps/creator, apps/learner ✅ done
+
+**Reference:** ADR-012
+
+**Objective:** Two separately deployed, separately bundled Next.js PWAs sharing `packages/ui`, per ADR-012 — no native app, no unified single frontend.
+
+**Do:**
+*   `apps/creator` — Next.js app, installable PWA manifest, minimal placeholder dashboard route
+*   `apps/learner` — Next.js app, installable PWA manifest, minimal placeholder lesson-view route, deliberately thin (no builder/dashboard code — ADR-012 Positive consequence: "learner bundle stays genuinely thin")
+*   `packages/ui` — shared design-system package, consumed via `workspace:*` by both apps
+*   `packages/types` — shared domain types/enums (Program shape, Enrollment state, Signal type, etc. — mirrors Task 5's Prisma enums so frontend and backend can't drift)
+
+**Acceptance criteria:**
+- [x] Both apps run locally (`pnpm --filter creator dev`, `pnpm --filter learner dev`) on different ports (3001/3002)
+- [x] Both install as a PWA (manifest + service worker present) via browser install prompt
+- [x] `apps/learner`'s production bundle does not include any code imported only by `apps/creator` (verified via a marker-string grep against both production builds)
+- [x] A shared component imported from `packages/ui` renders correctly in both apps
+- [x] A shared enum from `packages/types` is imported and used in at least one placeholder screen in each app
+
+**Depends on:** Task 1 (monorepo skeleton), Task 2 (shared config).
+
+* * *
+
+## 8. Root docs — README + CONTRIBUTING ⏳ not started
+
+**Reference:** §12 "Notes for engineering," ADR-013
+
+**Objective:** The rules that are easy to forget once the team grows past who was in the ADR discussion, written down where a new engineer will actually see them.
+
+**Do:**
+*   `README.md`: local dev bootstrap (clone → `pnpm install` → `docker compose up -d` → `pnpm --filter api prisma migrate dev` → `pnpm turbo dev`)
+*   `CONTRIBUTING.md` covering, explicitly:
+    *   Use `pnpm`, never `npm`/`yarn` — strict resolution is load-bearing for the workspace boundary, not a style preference (ADR-013)
+    *   Every PR touching a tenant-scoped table must include `organisation_id` — enforced via repository base class, not code review memory (ADR-008)
+    *   No direct WhatsApp/Meta API calls outside the Messaging module; no direct LLM API calls outside the AI module (§1, ADR-002, ADR-011)
+    *   pnpm's strict resolution may surface phantom-dependency errors unfamiliar to npm/yarn users on first install — expected, not a bug (ADR-013 Negative consequence)
+    *   How to run the boundary check from Task 4 locally before pushing
+
+**Acceptance criteria:**
+- [ ] A new engineer following only `README.md` can get from clone to a running `apps/api` + one PWA with zero undocumented steps
+- [ ] `CONTRIBUTING.md` states all four rules above explicitly, each with a one-line "why" tied to its ADR
+
+**Depends on:** Tasks 1, 5, 6 (docs describe the real bootstrap flow, so should be written last, once those exist).

@@ -38,3 +38,11 @@ lesson worth preserving.
 |---|-------|--------|
 | 0001 | [`features/0001-sprint-0-foundation.md`](./features/0001-sprint-0-foundation.md) | Tasks 1-4: monorepo skeleton, shared config, NestJS skeleton, boundary enforcement |
 | 0002 | [`features/0002-task7-frontend-pwas.md`](./features/0002-task7-frontend-pwas.md) | Task 7: apps/creator + apps/learner as installable Next.js PWAs, packages/ui Badge, packages/types enums |
+
+## `clickup-sync/` — offline mirror of ClickUp (different from `features/` above)
+
+`clickup-sync/` is not a `features/`-style entry — it's a **point-in-time snapshot** of ClickUp's
+Sprint and Product documentation (Product Brief, Technical Architecture ADR, BRDs, Sprints 0-4),
+mirrored in so implementation doesn't require live ClickUp access. It is not append-only and not
+authored here — it's external content pulled in and periodically re-synced. See
+[`clickup-sync/README.md`](./clickup-sync/README.md) for the full file index and re-sync process.
