@@ -4,13 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node -e \"console.log('[@fundi/learner] no-op build')\"",
+    "build": "next build",
     "lint": "eslint . --max-warnings=0",
     "test": "node -e \"console.log('[@fundi/learner] no-op test')\"",
-    "dev": "node -e \"console.log('[@fundi/learner] no-op dev')\""
+    "dev": "next dev --port 3002",
+    "start": "next start --port 3002"
+  },
+  "dependencies": {
+    "@fundi/types": "workspace:*",
+    "@fundi/ui": "workspace:*",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
     "@fundi/config": "workspace:*",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
     "eslint": "10.7.0",
     "typescript": "6.0.3"
   }

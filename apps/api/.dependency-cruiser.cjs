@@ -14,7 +14,7 @@ module.exports = {
     {
       name: 'no-cross-module-internal-imports',
       comment:
-        "Domain modules may only be imported via their barrel (index.ts). Internal files (service, interfaces, etc.) are private to their own module. See ADR-002.",
+        'Domain modules may only be imported via their barrel (index.ts). Internal files (service, interfaces, etc.) are private to their own module. See ADR-002.',
       severity: 'error',
       from: {
         path: '^src/modules/([^/]+)/',
@@ -26,7 +26,8 @@ module.exports = {
     },
     {
       name: 'no-whatsapp-sdk-outside-messaging',
-      comment: 'Only the messaging module may reference a WhatsApp/Meta SDK. See ADR-011 section 1.',
+      comment:
+        'Only the messaging module may reference a WhatsApp/Meta SDK. See ADR-011 section 1.',
       severity: 'error',
       from: { pathNot: '^src/modules/messaging/' },
       to: {
