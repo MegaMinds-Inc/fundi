@@ -1,0 +1,39 @@
+# @fundi/docs
+
+Developer documentation for **completed, end-to-end features** — not a design doc, not a task
+tracker, not a place for minute tweaks. Think of each entry as the note you'd want future-you (or
+a new teammate) to read before touching a feature area again: what was built, why, and any real
+bugs hit along the way with root cause and fix.
+
+This package is intentionally excluded from the Turborepo pipeline: it has no `build`, `lint`, or
+`test` script, so `turbo run build|lint|test` silently skips it (this is turbo's normal behavior
+for any package lacking a given task's script — not a config workaround).
+
+## When to add an entry
+
+Add a new entry once a feature or unit of scoped work has **landed and is stable** — i.e. it
+corresponds to a completed ticket/task, not a work-in-progress branch or an individual commit.
+Skip anything that's just a refactor, a dependency bump, or a tweak with no new behavior or
+lesson worth preserving.
+
+## Convention
+
+- One file per entry under `features/`, named `NNNN-short-slug.md` where `NNNN` is a
+  zero-padded, monotonically increasing 4-digit sequence number (`0001`, `0002`, ...). The
+  sequence number is the source of truth for ordering; do not reuse or renumber past entries.
+- Each entry should cover, at minimum:
+  - **What was built** — a short, concrete summary (not a copy of the ticket).
+  - **Why** — the driving requirement/ADR, if any.
+  - **Bugs found and fixed** — anything that was a genuine runtime/correctness surprise
+    (something that looked like it should work but didn't), with root cause and the fix. Skip
+    routine judgment calls that didn't involve a surprise.
+  - **How to extend / verify** — the concrete commands a future contributor runs to extend this
+    area of the codebase or re-verify it still works.
+- Entries are append-only historical record: once written, don't rewrite an old entry to reflect
+  later changes — add a new entry instead and cross-reference the old one if relevant.
+
+## Index
+
+| # | Entry | Covers |
+|---|-------|--------|
+| 0001 | [`features/0001-sprint-0-foundation.md`](./features/0001-sprint-0-foundation.md) | Tasks 1-4: monorepo skeleton, shared config, NestJS skeleton, boundary enforcement |
