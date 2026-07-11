@@ -1,0 +1,11 @@
+{
+  "name": "@fundi/learner",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('[@fundi/learner] no-op build')\"",
+    "lint": "node -e \"console.log('[@fundi/learner] no-op lint')\"",
+    "test": "node -e \"console.log('[@fundi/learner] no-op test')\"",
+    "dev": "node -e \"console.log('[@fundi/learner] no-op dev')\""
+  }
+}

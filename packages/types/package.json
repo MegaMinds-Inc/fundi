@@ -1,0 +1,11 @@
+{
+  "name": "@fundi/types",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('[@fundi/types] no-op build')\"",
+    "lint": "node -e \"console.log('[@fundi/types] no-op lint')\"",
+    "test": "node -e \"console.log('[@fundi/types] no-op test')\"",
+    "dev": "node -e \"console.log('[@fundi/types] no-op dev')\""
+  }
+}
