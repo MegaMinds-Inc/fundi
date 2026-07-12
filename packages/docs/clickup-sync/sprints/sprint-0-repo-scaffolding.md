@@ -5,7 +5,7 @@
 
 # Sprint 0 — Repo Scaffolding (Fundi Monorepo)
 
-**Status in this repo:** Tasks 1–4 and 7 are done and marked `shipped` on ClickUp as of 2026-07-11 (see `packages/docs/features/0001-sprint-0-foundation.md` and `0002-task7-frontend-pwas.md`). As of 2026-07-12, Tasks 5, 6, and 8 are **code-complete and committed** (see `0003-sprint-0-close-prisma-infra-docs.md`), with all artifacts authored and everything that can be verified without a running database verified green (schema validates, migration generates, org-scoping unit tests pass, lint/build/boundaries pass). **Two acceptance criteria remain pending a one-time Docker enablement**: `docker compose up -d` (Task 6) and `prisma migrate dev` + the DB-backed isolation test (Task 5) can only be green-checked once Docker Desktop's WSL integration is enabled for this distro — a Windows-host GUI action, not something an agent can do from the WSL shell. The steps to complete that verification are in the root `README.md`. The parent umbrella task (86cap6x42) stays `backlog` on ClickUp until those runtime checks are confirmed.
+**Status in this repo:** All 8 tasks are done. Tasks 1–4 and 7 marked `shipped` on ClickUp as of 2026-07-11 (see `packages/docs/features/0001-sprint-0-foundation.md` and `0002-task7-frontend-pwas.md`). Tasks 5, 6, 8 code-complete since 2026-07-12 (see `0003-sprint-0-close-prisma-infra-docs.md`); Docker Desktop's WSL integration got enabled since then, so the previously-pending runtime checks were run for real: `docker compose up -d` (both services healthy), `prisma migrate dev` (clean against the live DB), and the DB-backed org-isolation integration test all pass — see `0004-sprint-0-docker-verification-and-async-context-bug.md` for the three real bugs that surfaced once the test could finally run (it had been silently auto-skipping and never actually executing its assertions until this pass). All 8 tasks marked `shipped` on ClickUp as of 2026-07-12; the parent umbrella task (86cap6x42) moved off `backlog` too.
 
 **Local-first workflow (going forward):** completed tasks get marked here first (this file). ClickUp only gets updated — and any new sprint tasks pulled in — when explicitly asked to sync.
 
@@ -111,7 +111,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 5. Prisma schema + first migration — org-scoped domain model ✅ code-complete (runtime check pending Docker)
+## 5. Prisma schema + first migration — org-scoped domain model ✅ shipped
 
 **Reference:** §3 (Core domain model), ADR-006, ADR-008
 
@@ -124,10 +124,10 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 *   First migration generated and committed
 
 **Acceptance criteria:**
-- [ ] `prisma migrate dev` runs clean against a local Postgres instance — **pending Docker.** The migration SQL is generated and committed (`prisma/migrations/20260711000000_init/`, produced offline via `prisma migrate diff --from-empty`), and `prisma validate` passes. Applying it to a live DB is the one remaining step.
+- [x] `prisma migrate dev` runs clean against a local Postgres instance — verified 2026-07-12 against the live docker-compose Postgres, clean apply.
 - [x] Every tenant-scoped table has `organisation_id` as a required (non-nullable) column — verified: 14 tenant tables each have `"organisation_id" TEXT NOT NULL` in the migration; `Organisation` (tenant root) correctly excluded.
-- [x] A test that queries WITHOUT an org context throws/fails rather than silently returning cross-tenant data — enforced by the Prisma client extension (`src/prisma/`) and covered offline by `org-scope.test.ts` (`scopeOperation` throws `MissingOrgContextError` with no context bound). Enforcement is at the query layer, not a repository authors must remember to use (ADR-008).
-- [ ] A test that seeds two orgs' data and queries as Org A confirms zero rows from Org B — **pending Docker.** The test is written (`src/prisma/org-isolation.integration.test.ts`) and auto-skips when no DB is reachable; it runs for real once Postgres is up.
+- [x] A test that queries WITHOUT an org context throws/fails rather than silently returning cross-tenant data — enforced by the Prisma client extension (`src/prisma/`) and covered by `org-scope.test.ts` (`scopeOperation` throws `MissingOrgContextError` with no context bound). Enforcement is at the query layer, not a repository authors must remember to use (ADR-008).
+- [x] A test that seeds two orgs' data and queries as Org A confirms zero rows from Org B — verified 2026-07-12 against the live DB (`src/prisma/org-isolation.integration.test.ts`). This test had actually never executed before — it had been silently auto-skipping since Docker wasn't available all through Sprint 0. Once it could finally run, three real bugs surfaced and were fixed: the test script didn't load `.env`, the `skip` option was evaluated before `before()` could determine DB availability, and — the significant one — `runWithOrgContext` lost its `AsyncLocalStorage` context because Prisma's query methods are lazy and the original implementation didn't await inside the `storage.run()` zone. Full writeup: `packages/docs/features/0004-sprint-0-docker-verification-and-async-context-bug.md`.
 - [x] Enums match §3 exactly (Program shape, visibility; Lesson type; Enrollment state; Signal type) — verified against the generated migration; enum member names equal the string values in `packages/types` so FE/BE can't drift.
 
 **Implementation note:** the "repository base class or Prisma middleware" from the ADR is implemented as a **Prisma client extension** (`$extends`), the modern replacement for the deprecated `$use` middleware — combined with `AsyncLocalStorage` for the per-request org context. This scopes even a direct `prisma.client.model.findMany()` call, which a base class that authors must opt into would not.
@@ -136,11 +136,9 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 6. Local dev environment — docker-compose (Postgres + Redis) ✅ files authored (runtime check pending Docker)
+## 6. Local dev environment — docker-compose (Postgres + Redis) ✅ shipped
 
 **Reference:** ADR-006, ADR-009
-
-**Files authored; runtime verification pending Docker:** `docker-compose.yml` and `apps/api/.env.example` are written and committed. The only thing that cannot be confirmed from the WSL shell is `docker compose up -d` itself — Docker Desktop's WSL integration is not enabled for this distro (the `docker` command is a stub pointing to Docker Desktop settings). Enabling it is a one-time Windows-host GUI action; once done, the up/connect steps in the root README complete both this task and Task 5's migration check.
 
 **Objective:** Every engineer's local setup matches what Prisma/BullMQ expect, without needing cloud infra to develop.
 
@@ -150,8 +148,8 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 *   One-liner documented in README: `docker compose up -d` → app connects
 
 **Acceptance criteria:**
-- [ ] `docker compose up -d` from repo root brings up Postgres + Redis with no manual config — **pending Docker enablement.** `docker-compose.yml` defines both services with healthchecks and local defaults; only the `up` itself is unrun.
-- [ ] `apps/api` connects to both using only `.env` values copied from `.env.example` — **pending Docker enablement.** `apps/api/.env.example` `DATABASE_URL`/`REDIS_URL` already point at the compose services.
+- [x] `docker compose up -d` from repo root brings up Postgres + Redis with no manual config — verified 2026-07-12, both `fundi-postgres` and `fundi-redis` reach `healthy` with zero manual config.
+- [x] `apps/api` connects to both using only `.env` values copied from `.env.example` — verified: `cp apps/api/.env.example apps/api/.env` then `prisma migrate dev` and the full test suite both connected successfully with no further config.
 - [x] Documented teardown/reset instructions (`docker compose down -v` to reset local DB state) — in both `docker-compose.yml` header comments and the root README.
 
 **Depends on:** Task 1 (monorepo skeleton). Independent of Tasks 2–4 — can run in parallel.
