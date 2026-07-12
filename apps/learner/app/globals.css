@@ -1,12 +1,11 @@
+/* Learner app — runs the Pulse light theme (data-theme="light" on <html>).
+   Base font/color come from @fundi/ui tokens; here we just paint the canvas. */
 :root {
   color-scheme: light;
 }
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  min-height: 100vh;
+  background: var(--color-bg-canvas);
 }

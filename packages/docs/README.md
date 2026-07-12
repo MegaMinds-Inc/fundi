@@ -40,6 +40,7 @@ lesson worth preserving.
 | 0002 | [`features/0002-task7-frontend-pwas.md`](./features/0002-task7-frontend-pwas.md) | Task 7: apps/creator + apps/learner as installable Next.js PWAs, packages/ui Badge, packages/types enums |
 | 0003 | [`features/0003-sprint-0-close-prisma-infra-docs.md`](./features/0003-sprint-0-close-prisma-infra-docs.md) | Tasks 5, 6, 8: Prisma domain schema + query-layer org-scoping + first migration, docker-compose (Postgres/Redis), root README + CONTRIBUTING |
 | 0004 | [`features/0004-sprint-0-docker-verification-and-async-context-bug.md`](./features/0004-sprint-0-docker-verification-and-async-context-bug.md) | Docker-dependent Task 5/6 verification once WSL integration was enabled; three real bugs found (test never loaded .env, static `skip` option evaluated before `before()` ran, AsyncLocalStorage context lost across a lazy Prisma promise) |
+| 0005 | [`features/0005-design-system-tokens-and-components.md`](./features/0005-design-system-tokens-and-components.md) | Sprint 1 US-001/US-002: "Pulse" design system ported into packages/ui — token layer (light+dark, mobile-first) + 9 components (Button/Input/Card/Badge/Tag/Tabs/Modal/Drawer/EmptyState); creator (dark) + learner (light) wired to consume it |
 
 ## `clickup-sync/` — offline mirror of ClickUp (different from `features/` above)
 

@@ -1,0 +1,26 @@
+/*
+  Fundi layout foundation — mobile-first, 3-tier breakpoints, 12-column fluid grid.
+  Learner portal is mobile-first & light (per ARCHITECTURE.md §4.4/§7); the creator app
+  scales up to a full desktop workspace. Author mobile layout first, then adapt up.
+*/
+:root {
+  /* breakpoints (documentation reference — CSS custom properties are not valid inside
+     @media conditions, so these are the canonical numbers to hardcode into media queries) */
+  --breakpoint-mobile: 0px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1200px;
+
+  /* container max-widths per tier */
+  --container-mobile: 100%;
+  --container-tablet: 720px;
+  --container-desktop: 1200px;
+
+  /* outer page margin per tier */
+  --grid-margin-mobile: 16px;
+  --grid-margin-tablet: 32px;
+  --grid-margin-desktop: 48px;
+
+  /* 12-column fluid grid */
+  --grid-columns: 12; /* @kind other */
+  --grid-gutter: clamp(12px, 1.6vw, 24px); /* @kind spacing */
+}

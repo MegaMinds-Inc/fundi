@@ -1,0 +1,114 @@
+/*
+  Fundi — color tokens.
+  Theme = "Pulse": vivid green + teal accents on a calm ink/paper base.
+  Dark is the DEFAULT surface (product default). Light is available via [data-theme="light"].
+  Base values (raw hex) feed semantic aliases — always build UI against the semantic layer.
+*/
+
+:root {
+  /* ---- base palette (dark / Pulse-on-ink) ---- */
+  --base-ink-900: #0C1512;
+  --base-ink-800: #111C16;
+  --base-ink-700: #18261F;
+  --base-line-700: #1E2E27;
+  --base-line-600: #2C4034;
+  --base-paper-100: #EAF3EE;
+  --base-paper-300: #9CB6A9;
+  --base-paper-500: #6F8A7D;
+
+  --base-green-500: #1FD87A;   /* Pulse green — primary accent */
+  --base-green-600: #17B968;
+  --base-teal-500: #2DD4C4;    /* secondary accent */
+  --base-amber-500: #E8B84B;   /* warn / draft */
+  --base-red-500: #F0665C;     /* error / at-risk */
+
+  --base-whatsapp: #25D366;    /* fixed brand color, does not flip with theme */
+
+  /* ---- semantic aliases (dark default) ---- */
+  --color-bg-canvas: var(--base-ink-900);
+  --color-bg-surface: var(--base-ink-800);
+  --color-bg-elevated: var(--base-ink-700);
+  --color-bg-sunken: #0A120E;
+
+  --color-border-subtle: var(--base-line-700);
+  --color-border-strong: var(--base-line-600);
+
+  --color-text-heading: var(--base-paper-100);
+  --color-text-body: var(--base-paper-100);
+  --color-text-muted: var(--base-paper-300);
+  --color-text-faint: var(--base-paper-500);
+  --color-text-on-accent: #07120C;
+
+  --color-accent-primary: var(--base-green-500);
+  --color-accent-primary-strong: var(--base-green-600);
+  --color-accent-primary-soft: rgba(31, 216, 122, 0.15);
+  --color-accent-teal: var(--base-teal-500);
+  --color-accent-teal-soft: rgba(45, 212, 196, 0.14);
+
+  --color-status-live-bg: rgba(31, 216, 122, 0.15);
+  --color-status-live-text: var(--base-green-500);
+  --color-status-draft-bg: rgba(45, 212, 196, 0.14);
+  --color-status-draft-text: var(--base-teal-500);
+  --color-status-warn-bg: rgba(232, 184, 75, 0.14);
+  --color-status-warn-text: var(--base-amber-500);
+  --color-status-danger-bg: rgba(240, 102, 92, 0.14);
+  --color-status-danger-text: var(--base-red-500);
+  --color-status-neutral-bg: var(--base-ink-700);
+  --color-status-neutral-text: var(--base-paper-300);
+
+  --color-focus-ring: var(--base-green-500);
+  --color-overlay-scrim: rgba(6, 12, 9, 0.6);
+}
+
+/* ---- light theme override ---- */
+[data-theme="light"] {
+  --base-ink-900: #F4FBF6;
+  --base-ink-800: #FFFFFF;
+  --base-ink-700: #F4FBF6;
+  --base-line-700: #DDEAE1;
+  --base-line-600: #C7DCCF;
+  --base-paper-100: #08130D;
+  --base-paper-300: #4F6B5C;
+  --base-paper-500: #7C948A;
+
+  --base-green-500: #0FBE68;
+  --base-green-600: #0A7C46;
+  --base-teal-500: #12B3A2;
+  --base-amber-500: #9C6A12;
+  --base-red-500: #C6392E;
+
+  --color-bg-canvas: #F4FBF6;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #F4FBF6;
+  --color-bg-sunken: #EAF3EE;
+
+  --color-border-subtle: #DDEAE1;
+  --color-border-strong: #C7DCCF;
+
+  --color-text-heading: #08130D;
+  --color-text-body: #08130D;
+  --color-text-muted: #4F6B5C;
+  --color-text-faint: #7C948A;
+  --color-text-on-accent: #FFFFFF;
+
+  --color-accent-primary: #0FBE68;
+  --color-accent-primary-strong: #0A7C46;
+  --color-accent-primary-soft: #D5F0DE;
+  --color-accent-teal: #12B3A2;
+  --color-accent-teal-soft: rgba(18, 179, 162, 0.16);
+
+  --color-focus-ring: #0FBE68;
+
+  --color-status-live-bg: #D5F0DE;
+  --color-status-live-text: #0A7C46;
+  --color-status-draft-bg: rgba(18, 179, 162, 0.16);
+  --color-status-draft-text: #0C8578;
+  --color-status-warn-bg: #FBE9C7;
+  --color-status-warn-text: #9C6A12;
+  --color-status-danger-bg: rgba(198, 57, 46, 0.12);
+  --color-status-danger-text: #C6392E;
+  --color-status-neutral-bg: #EBF3EE;
+  --color-status-neutral-text: #7C948A;
+
+  --color-overlay-scrim: rgba(8, 19, 13, 0.4);
+}

@@ -1,0 +1,19 @@
+/*
+ * @fundi/ui — design-system stylesheet.
+ *
+ * Import ONCE in each app's root layout:  import '@fundi/ui/styles.css';
+ *
+ * Ships the full token layer (fonts, colors, type, spacing, radius, shadow,
+ * layout) plus a small base reset. Dark is the default surface (unset
+ * `data-theme`); light is available via `<html data-theme="light">`. Component
+ * inline styles reference these CSS custom properties via var(--…), so nothing
+ * renders on-brand until this file is loaded.
+ */
+@import './tokens/fonts.css';
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/radius.css';
+@import './tokens/shadow.css';
+@import './tokens/layout.css';
+@import './tokens/base.css';
