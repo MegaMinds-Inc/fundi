@@ -1,0 +1,104 @@
+# Deploy the PWAs (creator, learner) to Vercel — GitHub-driven, mirroring the
+# backend deploy. Env is the source of truth in the GitHub `dev` Environment and
+# is applied to Vercel as RUNTIME (server-side) env — never build-inlined, never
+# NEXT_PUBLIC. Vercel's own Git auto-deploy is disabled; this workflow drives it.
+#
+# - Production: after CI succeeds on `main`, deploy both apps to production.
+# - Preview: on same-repo PRs, deploy a preview per app and comment the URLs.
+name: Deploy Frontend (Dev)
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: deploy-frontend-${{ github.event.pull_request.number || 'main' }}
+  cancel-in-progress: true
+
+jobs:
+  production:
+    # Only on a successful CI run on main.
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: dev
+    strategy:
+      matrix:
+        app: [creator, learner]
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ matrix.app == 'creator' && secrets.VERCEL_PROJECT_ID_CREATOR || secrets.VERCEL_PROJECT_ID_LEARNER }}
+      API_BASE_URL: ${{ secrets.API_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - run: npm install -g vercel@latest
+      - name: Push runtime env to Vercel (production) from GitHub
+        run: |
+          set -euo pipefail
+          # GitHub overwrites Vercel each deploy (server-side runtime var, not NEXT_PUBLIC).
+          vercel env rm API_BASE_URL production -y --token="$VERCEL_TOKEN" || true
+          printf '%s' "$API_BASE_URL" | vercel env add API_BASE_URL production --token="$VERCEL_TOKEN"
+      - name: Build & deploy (production)
+        run: |
+          set -euo pipefail
+          vercel pull   --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build  --prod                          --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod               --token="$VERCEL_TOKEN"
+
+  preview:
+    # Same-repo PRs only — forks can't read the deploy secrets.
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      matrix:
+        app: [creator, learner]
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ matrix.app == 'creator' && secrets.VERCEL_PROJECT_ID_CREATOR || secrets.VERCEL_PROJECT_ID_LEARNER }}
+      API_BASE_URL: ${{ secrets.API_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - run: npm install -g vercel@latest
+      - name: Push runtime env to Vercel (preview) from GitHub
+        run: |
+          set -euo pipefail
+          vercel env rm API_BASE_URL preview -y --token="$VERCEL_TOKEN" || true
+          printf '%s' "$API_BASE_URL" | vercel env add API_BASE_URL preview --token="$VERCEL_TOKEN"
+      - name: Build & deploy (preview)
+        id: deploy
+        run: |
+          set -euo pipefail
+          vercel pull  --yes --environment=preview --token="$VERCEL_TOKEN"
+          vercel build --token="$VERCEL_TOKEN"
+          url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Comment preview URL on the PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const app = '${{ matrix.app }}';
+            const url = '${{ steps.deploy.outputs.url }}';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `**Preview — @fundi/${app}:** ${url}`,
+            });

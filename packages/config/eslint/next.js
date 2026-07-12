@@ -16,5 +16,23 @@ export default [
         version: '19.2.7',
       },
     },
+    rules: {
+      // Fundi env policy: NO client-exposed env. `NEXT_PUBLIC_` vars are inlined
+      // into the browser bundle at build — forbidden. All env must be server-side
+      // and read from process.env at runtime only. See packages/docs/features/0007.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Identifier[name=/^NEXT_PUBLIC_/]',
+          message:
+            'NEXT_PUBLIC_* env vars are forbidden — Fundi env must stay server-side (read process.env in a server context only). See packages/docs/features/0007.',
+        },
+        {
+          selector: 'Literal[value=/^NEXT_PUBLIC_/]',
+          message:
+            'NEXT_PUBLIC_* env vars are forbidden — Fundi env must stay server-side (read process.env in a server context only). See packages/docs/features/0007.',
+        },
+      ],
+    },
   },
 ];

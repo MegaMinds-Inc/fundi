@@ -42,6 +42,7 @@ lesson worth preserving.
 | 0004 | [`features/0004-sprint-0-docker-verification-and-async-context-bug.md`](./features/0004-sprint-0-docker-verification-and-async-context-bug.md) | Docker-dependent Task 5/6 verification once WSL integration was enabled; three real bugs found (test never loaded .env, static `skip` option evaluated before `before()` ran, AsyncLocalStorage context lost across a lazy Prisma promise) |
 | 0005 | [`features/0005-design-system-tokens-and-components.md`](./features/0005-design-system-tokens-and-components.md) | Sprint 1 US-001/US-002: "Pulse" design system ported into packages/ui — token layer (light+dark, mobile-first) + 9 components (Button/Input/Card/Badge/Tag/Tabs/Modal/Drawer/EmptyState); creator (dark) + learner (light) wired to consume it |
 | 0006 | [`features/0006-render-supabase-github-cicd.md`](./features/0006-render-supabase-github-cicd.md) | Dev deploy: apps/api on Render + Postgres on Supabase, GitHub-driven CI/CD — CI merge gate (lint/test/build + org-isolation test on a CI Postgres), deploy-on-merge to Dev with GitHub `dev` Environment secrets synced to Render via API; render.yaml Blueprint |
+| 0007 | [`features/0007-frontend-vercel-cicd-server-env.md`](./features/0007-frontend-vercel-cicd-server-env.md) | Frontends on Vercel (creator, learner), GitHub-driven deploys + PR previews via Vercel CLI; server-only runtime env policy (no NEXT_PUBLIC, enforced by an ESLint guard in @fundi/config) |
 
 ## `clickup-sync/` — offline mirror of ClickUp (different from `features/` above)
 
