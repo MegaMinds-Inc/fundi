@@ -1,0 +1,435 @@
+// Fundi core domain model — Technical Architecture §3.
+//
+// Multi-tenancy (ADR-008): every tenant-scoped table carries a required
+// `organisation_id`. Organisation itself is the tenant root and is therefore
+// NOT org-scoped. Scoping is enforced at the query layer by the Prisma client
+// extension in src/prisma/ — NOT by individual query authors remembering to
+// add a where clause. See apps/api/README.md.
+//
+// Enums for Program shape/visibility, Lesson type, Enrollment state, and Signal
+// type match §3 exactly and mirror packages/types so the frontend and backend
+// cannot drift. The stored DB value equals the enum member name (snake_case),
+// which equals the string constant in packages/types.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enumerations (§3)
+// ---------------------------------------------------------------------------
+
+enum ProgramShape {
+  self_paced
+  cohort
+  one_to_one
+  workshop
+  hybrid
+}
+
+enum ProgramVisibility {
+  public
+  private
+}
+
+enum LessonType {
+  text
+  video
+  attachment
+  live_online
+  in_person
+  quiz
+}
+
+enum EnrollmentState {
+  pending_approval
+  active
+  completed
+  dropped
+}
+
+enum SignalType {
+  lesson_overdue
+  reminder_unacknowledged
+  quiz_failed
+  help_requested
+  went_quiet
+}
+
+// Supporting enums (not in the §3 enum list, but implied by the entity table:
+// Mentor "has a role"; Message is inbound/outbound; Channel is channel-agnostic;
+// DripJob is a typed, retryable unit of work).
+
+enum MentorRole {
+  owner
+  admin
+  mentor
+}
+
+enum ChannelType {
+  whatsapp
+  sms
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+enum MessageStatus {
+  pending
+  sent
+  delivered
+  read
+  failed
+}
+
+enum DripJobType {
+  send_lesson
+  send_reminder
+  escalate_triage
+}
+
+enum DripJobStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+// ---------------------------------------------------------------------------
+// Tenant root — NOT org-scoped (it IS the organisation)
+// ---------------------------------------------------------------------------
+
+model Organisation {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mentors          Mentor[]
+  programs         Program[]
+  modules          Module[]
+  lessons          Lesson[]
+  cohorts          Cohort[]
+  learners         Learner[]
+  enrollments      Enrollment[]
+  progress         Progress[]
+  assessments      Assessment[]
+  signals          Signal[]
+  channels         Channel[]
+  messages         Message[]
+  messageTemplates MessageTemplate[]
+  dripJobs         DripJob[]
+
+  @@map("organisations")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant-scoped entities — every one carries organisation_id (ADR-008)
+// ---------------------------------------------------------------------------
+
+model Mentor {
+  id             String     @id @default(cuid())
+  organisationId String     @map("organisation_id")
+  name           String
+  phone          String
+  role           MentorRole @default(mentor)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  organisation  Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  ownedPrograms Program[]
+
+  // Phone identity is unique within an org, not globally (ADR-001, ADR-008):
+  // the same human may exist as a separate Mentor row per org.
+  @@unique([organisationId, phone])
+  @@index([organisationId])
+  @@map("mentors")
+}
+
+model Program {
+  id             String            @id @default(cuid())
+  organisationId String            @map("organisation_id")
+  ownerMentorId  String            @map("owner_mentor_id")
+  title          String
+  description    String?
+  shape          ProgramShape
+  visibility     ProgramVisibility @default(private)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  owner        Mentor       @relation(fields: [ownerMentorId], references: [id])
+  modules      Module[]
+  cohorts      Cohort[]
+  enrollments  Enrollment[]
+
+  @@index([organisationId])
+  @@map("programs")
+}
+
+model Module {
+  id             String   @id @default(cuid())
+  organisationId String   @map("organisation_id")
+  programId      String   @map("program_id")
+  title          String
+  order          Int
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  program      Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  lessons      Lesson[]
+
+  @@unique([programId, order])
+  @@index([organisationId])
+  @@map("modules")
+}
+
+model Lesson {
+  id             String     @id @default(cuid())
+  organisationId String     @map("organisation_id")
+  moduleId       String     @map("module_id")
+  title          String
+  type           LessonType
+  order          Int
+  // JSONB per ADR-006 — lesson content shape varies by type (text body, video
+  // URL, attachment ref, quiz questions).
+  content        Json?
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  module       Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress     Progress[]
+  assessments  Assessment[]
+  dripJobs     DripJob[]
+
+  @@unique([moduleId, order])
+  @@index([organisationId])
+  @@map("lessons")
+}
+
+model Cohort {
+  id             String    @id @default(cuid())
+  organisationId String    @map("organisation_id")
+  programId      String    @map("program_id")
+  name           String
+  startDate      DateTime? @map("start_date")
+  // IANA timezone (e.g. "Africa/Accra") — drip scheduling is timezone-aware
+  // per learner/cohort (ADR-009).
+  timezone       String    @default("UTC")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  program      Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  enrollments  Enrollment[]
+
+  @@index([organisationId])
+  @@map("cohorts")
+}
+
+model Learner {
+  id             String   @id @default(cuid())
+  organisationId String   @map("organisation_id")
+  // Phone-number-first identity (ADR-001). Unique within an org, not globally.
+  phone          String
+  name           String?
+  timezone       String   @default("UTC")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  enrollments  Enrollment[]
+  progress     Progress[]
+  assessments  Assessment[]
+  signals      Signal[]
+  channels     Channel[]
+  messages     Message[]
+  dripJobs     DripJob[]
+
+  @@unique([organisationId, phone])
+  @@index([organisationId])
+  @@map("learners")
+}
+
+model Enrollment {
+  id             String          @id @default(cuid())
+  organisationId String          @map("organisation_id")
+  learnerId      String          @map("learner_id")
+  programId      String          @map("program_id")
+  cohortId       String?         @map("cohort_id")
+  state          EnrollmentState @default(pending_approval)
+  enrolledAt     DateTime        @default(now()) @map("enrolled_at")
+  approvedAt     DateTime?       @map("approved_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  learner      Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  program      Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  cohort       Cohort?      @relation(fields: [cohortId], references: [id])
+  progress     Progress[]
+  dripJobs     DripJob[]
+
+  @@unique([organisationId, learnerId, programId])
+  @@index([organisationId])
+  @@map("enrollments")
+}
+
+model Progress {
+  id             String    @id @default(cuid())
+  organisationId String    @map("organisation_id")
+  learnerId      String    @map("learner_id")
+  lessonId       String    @map("lesson_id")
+  enrollmentId   String    @map("enrollment_id")
+  startedAt      DateTime? @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  learner      Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lesson       Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, lessonId])
+  @@index([organisationId])
+  @@map("progress")
+}
+
+model Assessment {
+  id             String   @id @default(cuid())
+  organisationId String   @map("organisation_id")
+  learnerId      String   @map("learner_id")
+  lessonId       String   @map("lesson_id")
+  score          Float?
+  passed         Boolean?
+  submittedAt    DateTime @default(now()) @map("submitted_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  learner      Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lesson       Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
+  @@map("assessments")
+}
+
+// Append-only event stream feeding attention triage (ADR-010). No updatedAt —
+// signals are immutable facts, never edited after they are emitted.
+model Signal {
+  id             String     @id @default(cuid())
+  organisationId String     @map("organisation_id")
+  learnerId      String     @map("learner_id")
+  type           SignalType
+  payload        Json?
+  occurredAt     DateTime   @default(now()) @map("occurred_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  learner      Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
+  @@index([organisationId, learnerId, occurredAt])
+  @@map("signals")
+}
+
+model Channel {
+  id             String      @id @default(cuid())
+  organisationId String      @map("organisation_id")
+  learnerId      String      @map("learner_id")
+  type           ChannelType @default(whatsapp)
+  // Delivery address on the channel — e.g. the WhatsApp phone number.
+  address        String
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  learner      Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@unique([organisationId, type, address])
+  @@index([organisationId])
+  @@map("channels")
+}
+
+// Meta-approved template shape AI drafts variables into (ADR-005). The core
+// never sends free-form text outside the 24h window — only templates.
+model MessageTemplate {
+  id             String      @id @default(cuid())
+  organisationId String      @map("organisation_id")
+  name           String
+  channelType    ChannelType @default(whatsapp) @map("channel_type")
+  body           String
+  // Declared variable slots the template exposes for AI to fill.
+  variables      Json?
+  locale         String      @default("en")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@unique([organisationId, name, locale])
+  @@index([organisationId])
+  @@map("message_templates")
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  organisationId String           @map("organisation_id")
+  learnerId      String           @map("learner_id")
+  channelId      String?          @map("channel_id")
+  templateId     String?          @map("template_id")
+  direction      MessageDirection
+  status         MessageStatus    @default(pending)
+  body           String?
+  sentAt         DateTime?        @map("sent_at")
+  deliveredAt    DateTime?        @map("delivered_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  learner      Learner          @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  channel      Channel?         @relation(fields: [channelId], references: [id])
+  template     MessageTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([organisationId])
+  @@index([organisationId, learnerId, createdAt])
+  @@map("messages")
+}
+
+// Durable, retryable unit of scheduled work (ADR-009). BullMQ owns live job
+// state; this row is the persisted, inspectable record.
+model DripJob {
+  id             String        @id @default(cuid())
+  organisationId String        @map("organisation_id")
+  type           DripJobType
+  status         DripJobStatus @default(pending)
+  enrollmentId   String?       @map("enrollment_id")
+  learnerId      String?       @map("learner_id")
+  lessonId       String?       @map("lesson_id")
+  runAt          DateTime      @map("run_at")
+  attempts       Int           @default(0)
+  payload        Json?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment?  @relation(fields: [enrollmentId], references: [id])
+  learner      Learner?     @relation(fields: [learnerId], references: [id])
+  lesson       Lesson?      @relation(fields: [lessonId], references: [id])
+
+  @@index([organisationId])
+  @@index([status, runAt])
+  @@map("drip_jobs")
+}

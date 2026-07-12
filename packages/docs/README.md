@@ -38,6 +38,7 @@ lesson worth preserving.
 |---|-------|--------|
 | 0001 | [`features/0001-sprint-0-foundation.md`](./features/0001-sprint-0-foundation.md) | Tasks 1-4: monorepo skeleton, shared config, NestJS skeleton, boundary enforcement |
 | 0002 | [`features/0002-task7-frontend-pwas.md`](./features/0002-task7-frontend-pwas.md) | Task 7: apps/creator + apps/learner as installable Next.js PWAs, packages/ui Badge, packages/types enums |
+| 0003 | [`features/0003-sprint-0-close-prisma-infra-docs.md`](./features/0003-sprint-0-close-prisma-infra-docs.md) | Tasks 5, 6, 8: Prisma domain schema + query-layer org-scoping + first migration, docker-compose (Postgres/Redis), root README + CONTRIBUTING |
 
 ## `clickup-sync/` — offline mirror of ClickUp (different from `features/` above)
 
