@@ -5,6 +5,7 @@
   "scripts": {
     "postinstall": "prisma generate",
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
     "lint": "eslint . --max-warnings=0",
     "test": "node --env-file-if-exists=.env -r ts-node/register --test \"src/**/*.test.ts\"",
     "dev": "node --watch -r ts-node/register src/main.ts",

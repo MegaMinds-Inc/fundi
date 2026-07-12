@@ -1,0 +1,64 @@
+# Merge gate — runs on every PR and on pushes to main.
+# No secrets are used here, so it is safe on fork PRs. A throwaway Postgres
+# service lets the org-scoping integration test actually run (Sprint-1 US-003:
+# "CI blocks merge") instead of auto-skipping.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fundi
+          POSTGRES_PASSWORD: fundi
+          POSTGRES_DB: fundi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fundi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Ephemeral CI database — not pooled, so runtime and direct URLs are the same.
+      DATABASE_URL: postgresql://fundi:fundi@localhost:5432/fundi?schema=public
+      DIRECT_URL: postgresql://fundi:fundi@localhost:5432/fundi?schema=public
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # Activate the pnpm version pinned in package.json `packageManager`.
+      - name: Enable Corepack (pnpm)
+        run: corepack enable
+
+      - name: Install
+        run: pnpm install --frozen-lockfile # postinstall runs `prisma generate`
+
+      # Apply the schema to the CI Postgres so the org-isolation test runs for real.
+      - name: Apply migrations to CI database
+        run: pnpm --filter @fundi/api exec prisma migrate deploy
+
+      - name: Lint, test, build
+        run: pnpm turbo lint test build
+
+      # Authoritative module-boundary + SDK-isolation check (dependency-cruiser).
+      - name: Architecture boundaries
+        run: pnpm --filter @fundi/api boundaries

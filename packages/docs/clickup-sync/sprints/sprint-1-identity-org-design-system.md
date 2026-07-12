@@ -177,11 +177,11 @@ Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-componen
 **Story:** As an engineering team, we want automated tests that fail CI if a tenant-scoped query bypasses org scoping, so that this isn't relied on for code review memory alone.
 
 **Acceptance Criteria**
-- [ ] Test suite includes at least one deliberate "forgot org filter" case that must fail without the middleware
-- [ ] CI blocks merge on failure
-- [ ] Covers every current tenant-scoped table (Program, Enrollment, Progress, Signal, etc.)
+- [x] Test suite includes at least one deliberate "forgot org filter" case that must fail without the middleware — `apps/api/src/prisma/org-scope.test.ts` (`scopeOperation` throws `MissingOrgContextError` when unscoped) + the DB-backed `org-isolation.integration.test.ts`.
+- [x] CI blocks merge on failure — `.github/workflows/ci.yml` runs the suite (with a Postgres service so the integration test executes) on every PR; make it a required check via branch protection. See `0006-render-supabase-github-cicd.md`.
+- [x] Covers every current tenant-scoped table — `TENANT_SCOPED_MODELS` completeness test asserts it matches the schema's `organisation_id` tables.
 
-**Notes:** ADR-008 negative-case coverage. Points: 5
+**Notes:** ADR-008 negative-case coverage. Points: 5. Test coverage landed with the Sprint-0 close (see `0003`/`0004`); the CI gate wiring landed with `0006`.
 
 **Status:** backlog · **Priority:** none · **ClickUp:** [86cap8tz8](https://app.clickup.com/t/86cap8tz8)
 

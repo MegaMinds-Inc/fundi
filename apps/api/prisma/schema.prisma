@@ -17,7 +17,13 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // App runtime — Supabase Supavisor TRANSACTION pooler (IPv4, port 6543,
+  // `?pgbouncer=true`). Render is IPv4-only, so we go through the pooler host
+  // (`…pooler.supabase.com`), never Supabase's IPv6-only direct host.
+  url       = env("DATABASE_URL")
+  // Migrations (`prisma migrate deploy`) — Supavisor SESSION pooler (IPv4,
+  // port 5432). Prisma automatically uses this for schema operations.
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------
