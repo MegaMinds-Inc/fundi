@@ -25,13 +25,13 @@
 **Story:** As a frontend engineer, I want a shared design-tokens package so that Creator PWA and Learner PWA visually stay in sync from day one.
 
 **Acceptance Criteria**
-- [ ] packages/ui exposes tokens for color, typography, spacing
-- [ ] Light mode and dark mode variants both defined (per house rule: every dark-mode design gets a light-mode counterpart)
-- [ ] Mobile-first values as base; documented notes for how tokens scale on larger screens
+- [x] packages/ui exposes tokens for color, typography, spacing — `packages/ui/src/tokens/*` + `styles.css`, exported as `@fundi/ui/styles.css` and `@fundi/ui/tokens/*`.
+- [x] Light mode and dark mode variants both defined — dark default (unset `data-theme`) + `[data-theme="light"]` override in `colors.css`/`shadow.css`; both verified present in each app's production CSS bundle.
+- [x] Mobile-first values as base; documented notes for how tokens scale — `layout.css` documents the 3-tier breakpoints/grid; notes in `packages/ui/README.md`.
 
-**Notes:** Points: 5
+**Notes:** Points: 5 — see `packages/docs/features/0005-design-system-tokens-and-components.md`.
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8u1g](https://app.clickup.com/t/86cap8u1g)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8u1g](https://app.clickup.com/t/86cap8u1g)
 
 ---
 
@@ -40,10 +40,10 @@
 **Story:** As a frontend engineer, I want a base set of shared components so that both PWAs don't rebuild the same primitives independently.
 
 **Acceptance Criteria**
-- [ ] Button, Input, Card, Badge, Tag, Tabs, Modal, Drawer, EmptyState built in `packages/ui` (9 primitives — final inventory below)
-- [ ] Each has light + dark mode support (dark is default via unset `data-theme`; light via `data-theme="light"` — same semantic tokens, no component-layer branching)
-- [ ] Mobile-first layout; documented behavior/notes for larger screens
-- [ ] Published as a `workspace:*` package consumable by `apps/creator` and `apps/learner`
+- [x] Button, Input, Card, Badge, Tag, Tabs, Modal, Drawer, EmptyState built in `packages/ui` (9 primitives) — `packages/ui/src/components/*.tsx`, all exported from `src/index.ts`.
+- [x] Each has light + dark mode support (dark default via unset `data-theme`; light via `data-theme="light"` — same semantic tokens, no component-layer branching) — components style purely via `var(--…)`; creator renders dark, learner renders light, both from the identical component code.
+- [x] Mobile-first layout; documented behavior/notes for larger screens — `packages/ui/README.md` per-component notes; `Drawer` is the mobile-first bottom-sheet counterpart to `Modal`.
+- [x] Published as a `workspace:*` package consumable by `apps/creator` and `apps/learner` — both consume via `workspace:*` + `transpilePackages`; demo pages rebuilt on the components.
 
 **UNBLOCKED — 2026-07-11:** screen sync is complete. Final component inventory, confirmed against all 5 delivered UI kits (Needs You queue, Enrollment, Learner Progress, AI Draft Review, Auth Flow):
 *   **Button** — primary/secondary/ghost/danger, sm/md/lg, icon-only circular mode
@@ -58,9 +58,9 @@
 
 **Sequencing note:** all 19 screen-level stories now in Signals & Attention Triage / Enrollment & Cohort Management / Progress & Assessments / AI Drafting & Triage Service reference `window.FundiDesignSystem_1eab67` components directly — this story is a hard prerequisite for all of them, not just a nice-to-have. Recommend this lands in Sprint 1 alongside US-001/US-003.
 
-Points: 8
+Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-components.md`.
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8u3b](https://app.clickup.com/t/86cap8u3b)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8u3b](https://app.clickup.com/t/86cap8u3b)
 
 ---
 
@@ -69,13 +69,13 @@ Points: 8
 **Story:** As an engineer, I want shared lint/tsconfig/prettier config as a proper workspace package so that apps/* and packages/* extend a single source of truth rather than referencing root files by relative path.
 
 **Acceptance Criteria**
-- [ ] packages/config exists as a workspace:* package
-- [ ] apps/creator, apps/learner, apps/api all extend from it
-- [ ] No relative-path references to root config files remain
+- [x] packages/config exists as a workspace:* package — delivered in Sprint 0 Task 2 (see `0001-sprint-0-foundation.md`).
+- [x] apps/creator, apps/learner, apps/api all extend from it — via `workspace:*` (eslint/tsconfig/prettier variants).
+- [x] No relative-path references to root config files remain.
 
-**Notes:** ADR-013 consequence. Points: 3
+**Notes:** ADR-013 consequence. Points: 3. Delivered ahead of Sprint 1 as part of Sprint 0 scaffolding.
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8u51](https://app.clickup.com/t/86cap8u51)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8u51](https://app.clickup.com/t/86cap8u51)
 
 ---
 
@@ -177,11 +177,11 @@ Points: 8
 **Story:** As an engineering team, we want automated tests that fail CI if a tenant-scoped query bypasses org scoping, so that this isn't relied on for code review memory alone.
 
 **Acceptance Criteria**
-- [ ] Test suite includes at least one deliberate "forgot org filter" case that must fail without the middleware
-- [ ] CI blocks merge on failure
-- [ ] Covers every current tenant-scoped table (Program, Enrollment, Progress, Signal, etc.)
+- [x] Test suite includes at least one deliberate "forgot org filter" case that must fail without the middleware — `apps/api/src/prisma/org-scope.test.ts` (`scopeOperation` throws `MissingOrgContextError` when unscoped) + the DB-backed `org-isolation.integration.test.ts`.
+- [x] CI blocks merge on failure — `.github/workflows/ci.yml` runs the suite (with a Postgres service so the integration test executes) on every PR; make it a required check via branch protection. See `0006-render-supabase-github-cicd.md`.
+- [x] Covers every current tenant-scoped table — `TENANT_SCOPED_MODELS` completeness test asserts it matches the schema's `organisation_id` tables.
 
-**Notes:** ADR-008 negative-case coverage. Points: 5
+**Notes:** ADR-008 negative-case coverage. Points: 5. Test coverage landed with the Sprint-0 close (see `0003`/`0004`); the CI gate wiring landed with `0006`.
 
 **Status:** backlog · **Priority:** none · **ClickUp:** [86cap8tz8](https://app.clickup.com/t/86cap8tz8)
 

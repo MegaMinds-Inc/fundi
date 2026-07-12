@@ -1,12 +1,11 @@
+/* Creator app — dark is the default Pulse surface (data-theme unset).
+   Base font/color come from @fundi/ui tokens; here we just paint the canvas. */
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  min-height: 100vh;
+  background: var(--color-bg-canvas);
 }

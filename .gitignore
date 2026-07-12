@@ -16,3 +16,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Claude Code — share agents + project settings, keep per-developer local overrides out.
+.claude/settings.local.json

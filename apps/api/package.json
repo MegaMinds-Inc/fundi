@@ -3,16 +3,22 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
     "lint": "eslint . --max-warnings=0",
-    "test": "node -e \"console.log('[@fundi/api] no-op test')\"",
+    "test": "node --env-file-if-exists=.env -r ts-node/register --test \"src/**/*.test.ts\"",
     "dev": "node --watch -r ts-node/register src/main.ts",
-    "boundaries": "depcruise --config .dependency-cruiser.cjs src"
+    "boundaries": "depcruise --config .dependency-cruiser.cjs src",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "@nestjs/common": "11.1.28",
     "@nestjs/core": "11.1.28",
     "@nestjs/platform-express": "11.1.28",
+    "@prisma/client": "6.19.3",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
   },
@@ -25,6 +31,7 @@
     "eslint": "10.7.0",
     "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import-x": "4.17.1",
+    "prisma": "6.19.3",
     "ts-node": "10.9.2",
     "typescript": "6.0.3"
   }

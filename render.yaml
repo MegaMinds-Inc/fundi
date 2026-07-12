@@ -1,0 +1,48 @@
+# Render Blueprint — hosts apps/api (NestJS) as a single web service.
+# The database lives on Supabase (managed Postgres); this repo has no DB service.
+# New → Blueprint in the Render dashboard, point at this repo, then fill the
+# three `sync: false` secrets. See packages/docs (Render + Supabase deploy notes).
+services:
+  - type: web
+    name: fundi-api
+    runtime: node
+    plan: free
+    # IMPORTANT: keep this in the SAME geography as the Supabase project — the
+    # API is chatty with Postgres, so cross-region latency dominates. The region
+    # is embedded in the Supabase pooler host (aws-0-<region>.pooler.supabase.com).
+    # eu-* → frankfurt · us-east-1 → virginia/ohio · us-west-1 → oregon.
+    # Render can't change a service's region after creation — set it right first.
+    region: frankfurt
+    branch: main
+    healthCheckPath: /health
+    # Deploys are driven by the GitHub "Deploy (Dev)" workflow (Render API), not by
+    # Render's own git-push watcher — this keeps GitHub the source of truth for env
+    # and avoids double deploys.
+    autoDeploy: false
+    # Build runs from the repo root so the pnpm workspace resolves. `pnpm install`
+    # triggers apps/api's postinstall (prisma generate). Migrations do NOT run here —
+    # the deploy workflow runs `prisma migrate deploy` against Supabase before
+    # triggering this deploy (see .github/workflows/deploy-dev.yml).
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @fundi/api build
+    startCommand: pnpm --filter @fundi/api start
+    # These values are pushed by the Deploy (Dev) workflow via the Render API from
+    # the GitHub `dev` Environment secrets — `sync: false` means the Blueprint does
+    # not manage them. NODE_VERSION is non-secret and lives here.
+    envVars:
+      # Node version — matches .nvmrc / package.json engines (>=24).
+      - key: NODE_VERSION
+        value: 24.18.0
+      # Supabase TRANSACTION pooler URL (IPv4, :6543, ?pgbouncer=true).
+      - key: DATABASE_URL
+        sync: false
+      # Supabase SESSION pooler URL (IPv4, :5432) — used by prisma migrate deploy.
+      - key: DIRECT_URL
+        sync: false
+      # Comma-separated allowlist of PWA origins, e.g.
+      # https://creator.example.com,https://learn.example.com
+      - key: CORS_ORIGINS
+        sync: false
+    # PORT is injected by Render automatically and read in src/main.ts — do not set it.

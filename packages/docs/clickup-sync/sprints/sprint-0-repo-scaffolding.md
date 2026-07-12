@@ -5,7 +5,7 @@
 
 # Sprint 0 — Repo Scaffolding (Fundi Monorepo)
 
-**Status in this repo:** Tasks 1–4 and 7 are done and marked `shipped` on ClickUp as of 2026-07-11 (see `packages/docs/features/0001-sprint-0-foundation.md` and `0002-task7-frontend-pwas.md`). Tasks 5, 6, 8 remain — Task 6 (docker-compose) is blocked on Docker Desktop's WSL integration not being enabled for this distro; Task 5 (Prisma schema) depends on Task 6's local Postgres; Task 8 (root README/CONTRIBUTING) is unblocked but not yet started. The parent umbrella task (86cap6x42) stays `backlog` on ClickUp until all 8 subtasks are done.
+**Status in this repo:** All 8 tasks are done. Tasks 1–4 and 7 marked `shipped` on ClickUp as of 2026-07-11 (see `packages/docs/features/0001-sprint-0-foundation.md` and `0002-task7-frontend-pwas.md`). Tasks 5, 6, 8 code-complete since 2026-07-12 (see `0003-sprint-0-close-prisma-infra-docs.md`); Docker Desktop's WSL integration got enabled since then, so the previously-pending runtime checks were run for real: `docker compose up -d` (both services healthy), `prisma migrate dev` (clean against the live DB), and the DB-backed org-isolation integration test all pass — see `0004-sprint-0-docker-verification-and-async-context-bug.md` for the three real bugs that surfaced once the test could finally run (it had been silently auto-skipping and never actually executing its assertions until this pass). All 8 tasks marked `shipped` on ClickUp as of 2026-07-12; the parent umbrella task (86cap6x42) moved off `backlog` too.
 
 **Local-first workflow (going forward):** completed tasks get marked here first (this file). ClickUp only gets updated — and any new sprint tasks pulled in — when explicitly asked to sync.
 
@@ -111,7 +111,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 5. Prisma schema + first migration — org-scoped domain model ⏳ not started
+## 5. Prisma schema + first migration — org-scoped domain model ✅ shipped
 
 **Reference:** §3 (Core domain model), ADR-006, ADR-008
 
@@ -124,21 +124,21 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 *   First migration generated and committed
 
 **Acceptance criteria:**
-- [ ] `prisma migrate dev` runs clean against a local Postgres instance
-- [ ] Every tenant-scoped table has `organisation_id` as a required (non-nullable) column
-- [ ] A test that queries via the repository base class WITHOUT an org context throws/fails, rather than silently returning cross-tenant data
-- [ ] A test that seeds two orgs' data and queries as Org A confirms zero rows from Org B are returned
-- [ ] Enums match §3 exactly (Program shape, visibility; Lesson type; Enrollment state; Signal type)
+- [x] `prisma migrate dev` runs clean against a local Postgres instance — verified 2026-07-12 against the live docker-compose Postgres, clean apply.
+- [x] Every tenant-scoped table has `organisation_id` as a required (non-nullable) column — verified: 14 tenant tables each have `"organisation_id" TEXT NOT NULL` in the migration; `Organisation` (tenant root) correctly excluded.
+- [x] A test that queries WITHOUT an org context throws/fails rather than silently returning cross-tenant data — enforced by the Prisma client extension (`src/prisma/`) and covered by `org-scope.test.ts` (`scopeOperation` throws `MissingOrgContextError` with no context bound). Enforcement is at the query layer, not a repository authors must remember to use (ADR-008).
+- [x] A test that seeds two orgs' data and queries as Org A confirms zero rows from Org B — verified 2026-07-12 against the live DB (`src/prisma/org-isolation.integration.test.ts`). This test had actually never executed before — it had been silently auto-skipping since Docker wasn't available all through Sprint 0. Once it could finally run, three real bugs surfaced and were fixed: the test script didn't load `.env`, the `skip` option was evaluated before `before()` could determine DB availability, and — the significant one — `runWithOrgContext` lost its `AsyncLocalStorage` context because Prisma's query methods are lazy and the original implementation didn't await inside the `storage.run()` zone. Full writeup: `packages/docs/features/0004-sprint-0-docker-verification-and-async-context-bug.md`.
+- [x] Enums match §3 exactly (Program shape, visibility; Lesson type; Enrollment state; Signal type) — verified against the generated migration; enum member names equal the string values in `packages/types` so FE/BE can't drift.
+
+**Implementation note:** the "repository base class or Prisma middleware" from the ADR is implemented as a **Prisma client extension** (`$extends`), the modern replacement for the deprecated `$use` middleware — combined with `AsyncLocalStorage` for the per-request org context. This scopes even a direct `prisma.client.model.findMany()` call, which a base class that authors must opt into would not.
 
 **Depends on:** Task 3 (needs `apps/api` NestJS structure to live in), Task 6 (needs local Postgres via docker-compose to actually run migrations against).
 
 * * *
 
-## 6. Local dev environment — docker-compose (Postgres + Redis) ⏳ blocked
+## 6. Local dev environment — docker-compose (Postgres + Redis) ✅ shipped
 
 **Reference:** ADR-006, ADR-009
-
-**Blocked:** Docker Desktop's WSL integration is not enabled for the Ubuntu-22.04 distro this repo is developed in — the `docker` command in WSL is a stub telling the user to enable it in Docker Desktop settings. This is a one-time Windows-host GUI action, not something an agent can do from the WSL shell.
 
 **Objective:** Every engineer's local setup matches what Prisma/BullMQ expect, without needing cloud infra to develop.
 
@@ -148,9 +148,9 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 *   One-liner documented in README: `docker compose up -d` → app connects
 
 **Acceptance criteria:**
-- [ ] `docker compose up -d` from repo root brings up Postgres + Redis with no manual config
-- [ ] `apps/api` connects to both using only `.env` values copied from `.env.example`
-- [ ] Documented teardown/reset instructions (e.g., `docker compose down -v` to reset local DB state)
+- [x] `docker compose up -d` from repo root brings up Postgres + Redis with no manual config — verified 2026-07-12, both `fundi-postgres` and `fundi-redis` reach `healthy` with zero manual config.
+- [x] `apps/api` connects to both using only `.env` values copied from `.env.example` — verified: `cp apps/api/.env.example apps/api/.env` then `prisma migrate dev` and the full test suite both connected successfully with no further config.
+- [x] Documented teardown/reset instructions (`docker compose down -v` to reset local DB state) — in both `docker-compose.yml` header comments and the root README.
 
 **Depends on:** Task 1 (monorepo skeleton). Independent of Tasks 2–4 — can run in parallel.
 
@@ -179,14 +179,14 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 
 * * *
 
-## 8. Root docs — README + CONTRIBUTING ⏳ not started
+## 8. Root docs — README + CONTRIBUTING ✅ shipped
 
 **Reference:** §12 "Notes for engineering," ADR-013
 
 **Objective:** The rules that are easy to forget once the team grows past who was in the ADR discussion, written down where a new engineer will actually see them.
 
 **Do:**
-*   `README.md`: local dev bootstrap (clone → `pnpm install` → `docker compose up -d` → `pnpm --filter api prisma migrate dev` → `pnpm turbo dev`)
+*   `README.md`: local dev bootstrap (clone → `pnpm install` → `docker compose up -d` → `pnpm --filter api prisma:migrate` → `pnpm turbo dev`)
 *   `CONTRIBUTING.md` covering, explicitly:
     *   Use `pnpm`, never `npm`/`yarn` — strict resolution is load-bearing for the workspace boundary, not a style preference (ADR-013)
     *   Every PR touching a tenant-scoped table must include `organisation_id` — enforced via repository base class, not code review memory (ADR-008)
@@ -195,7 +195,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
     *   How to run the boundary check from Task 4 locally before pushing
 
 **Acceptance criteria:**
-- [ ] A new engineer following only `README.md` can get from clone to a running `apps/api` + one PWA with zero undocumented steps
-- [ ] `CONTRIBUTING.md` states all four rules above explicitly, each with a one-line "why" tied to its ADR
+- [x] A new engineer following only `README.md` can get from clone to a running `apps/api` + one PWA with zero undocumented steps — `README.md` covers `nvm use` → `pnpm install` → `docker compose up -d` → copy `.env` → `prisma migrate dev` → `pnpm turbo dev`, with per-app ports and the Docker-Desktop-WSL note.
+- [x] `CONTRIBUTING.md` states all four rules explicitly, each with a one-line "why" tied to its ADR — pnpm-only (ADR-013), `organisation_id` enforced (ADR-008), no WhatsApp/LLM SDK outside messaging/ai (§1, ADR-002, ADR-011), phantom-dependency friction expected (ADR-013); plus how to run the boundary check locally.
 
 **Depends on:** Tasks 1, 5, 6 (docs describe the real bootstrap flow, so should be written last, once those exist).

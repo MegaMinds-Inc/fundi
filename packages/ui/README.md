@@ -2,22 +2,84 @@
 
 Shared design-system package for the Fundi Creator and Learner PWAs (`apps/creator`,
 `apps/learner`), consumed via `workspace:*`. Ships as raw TypeScript/TSX source (`src/index.ts` is
-both `main` and `types`) — no build step; consuming Next.js apps transpile it directly as part of
-their own bundling. See `packages/docs/features/0001-sprint-0-foundation.md` and (once landed) the
-Task 7 entry for the reasoning behind this no-build approach.
+both `main` and `types`) — no build step; consuming Next.js apps transpile it directly (they list
+`@fundi/ui` in `transpilePackages`). See `packages/docs/features/0001-sprint-0-foundation.md` and
+`0005-*` (design system) for the reasoning.
 
 `react`/`react-dom` are `peerDependencies`, not `dependencies` — this package does not bundle its
 own React copy; the consuming app provides it.
 
+## Theme: "Pulse"
+
+Dark is the **default** surface (leave `data-theme` unset). Light is available via
+`<html data-theme="light">` (or on any scoped container) and swaps the same semantic tokens —
+nothing in the component layer branches on theme. Every component styles itself purely through the
+CSS custom properties in `styles.css`.
+
+## Consuming it
+
+Import the token stylesheet **once** per app, in the root layout (it's global CSS):
+
+```tsx
+// apps/<app>/app/layout.tsx
+import '@fundi/ui/styles.css';
+```
+
+Then use components anywhere:
+
+```tsx
+import { Button, Card, Badge } from '@fundi/ui';
+```
+
+Individual token files are also exported if needed: `@fundi/ui/tokens/colors.css`, etc.
+
+### Icons
+
+Components that render an icon (`EmptyState`, and any `icon`/`iconLeft` slot you fill) expect
+**Phosphor Icons** (the substituted set — see design-system-foundations doc). Load the font in the
+app if you use icon-bearing components:
+
+```tsx
+// in <head> — e.g. next/script or a <link>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2/src/regular/style.css" />
+```
+
+## Tokens (`src/tokens/`, US-001)
+
+`colors` (dark default + `[data-theme="light"]`), `typography` (Sora / Manrope / JetBrains Mono),
+`spacing`, `radius`, `shadow`, `layout` (mobile-first 3-tier breakpoints + 12-col grid), `fonts`
+(Google Fonts import), `base` (reset + link defaults). `styles.css` imports them in order. Always
+build UI against the **semantic** aliases (`--color-bg-surface`, `--color-accent-primary`, …),
+not the raw `--base-*` values.
+
+Mobile-first: token values are the small-screen base. `layout.css` documents the breakpoints
+(`--breakpoint-tablet: 768px`, `--breakpoint-desktop: 1200px`) as the canonical numbers to hardcode
+into `@media` queries (CSS variables aren't valid inside media conditions).
+
+## Components (`src/components/`, US-002)
+
+All are inline-styled and read tokens via `var(--…)`. Interactive ones carry `'use client'`; the
+two purely-presentational ones (`Badge`, `EmptyState`) do not, so they can render in Server
+Components too.
+
+| Component | Notes |
+| --- | --- |
+| `Button` | `primary` / `secondary` / `ghost` / `danger`; `sm` / `md` / `lg`; `iconOnly` circular mode (requires `aria-label`). |
+| `Input` | label, `iconLeft` / `iconRight` slots, circular `actionIcon` send button, `error` / `helperText`. `type`/`inputMode` for phone/OTP entry. |
+| `Card` | optional 16:9 `media` slot, `title` + `meta` header, `footer`, `interactive` hover-lift. |
+| `Badge` | status pill, tone-coded `live` / `draft` / `warn` / `danger` / `neutral`. |
+| `Tag` | curated color set, `selected`, `removable`. |
+| `Tabs` | `pill` / `underline` / `boxed`, animated sliding indicator. |
+| `Modal` | scrim + centered dialog, `title`, `footer`. |
+| `Drawer` | mobile-first bottom action sheet; scrollable body + sticky footer. |
+| `EmptyState` | icon circle + heading + body; `primary` / `neutral` tone. |
+
+`Modal` and `Drawer` position `absolute` within the nearest positioned ancestor (per the design
+handoff) — wrap them in a full-viewport `position: relative` container for a page-level overlay.
+
 ## Lint
 
-Currently on `@fundi/config/eslint/base` (not `.../eslint/next` — that variant requires a real
-`next` dependency to resolve its parser, which this package intentionally does not have). This
-means no React-hooks-specific lint rules (`react-hooks/rules-of-hooks`,
-`react-hooks/exhaustive-deps`) are currently enforced here. Revisit once this package has a
-component that actually uses hooks — add `eslint-plugin-react-hooks` to a new
-`@fundi/config/eslint/react-lib` variant at that point.
-
-## Components
-
-- `Badge` — minimal labeled pill, `{ label: string }`.
+On `@fundi/config/eslint/base` (not `.../eslint/next`, which needs a real `next` dependency this
+package intentionally omits). React-hooks lint rules are therefore not enforced here yet — revisit
+by adding an `@fundi/config/eslint/react-lib` variant with `eslint-plugin-react-hooks` if hook
+misuse becomes a risk.

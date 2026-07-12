@@ -42,7 +42,7 @@ and overwrite the file.
 
 | File | Covers | Status |
 |---|---|---|
-| [`sprint-0-repo-scaffolding.md`](./sprints/sprint-0-repo-scaffolding.md) | Repo scaffolding (monorepo, shared config, NestJS skeleton, boundary enforcement, PWAs, docs) | Tasks 1-4, 7 `shipped` (on ClickUp too, as of 2026-07-11); 5, 6, 8 remain |
+| [`sprint-0-repo-scaffolding.md`](./sprints/sprint-0-repo-scaffolding.md) | Repo scaffolding (monorepo, shared config, NestJS skeleton, boundary enforcement, Prisma/org-scoping, docker-compose, PWAs, root docs) | All 8 tasks `shipped` on ClickUp (1-4, 7 as of 2026-07-11; 5, 6, 8 as of 2026-07-12) |
 | [`sprint-1-identity-org-design-system.md`](./sprints/sprint-1-identity-org-design-system.md) | Identity/OTP auth, org creation, design system tokens+components | Not started |
 | [`sprint-2-program-access-enrollment.md`](./sprints/sprint-2-program-access-enrollment.md) | Seeded programs, invite/approve learners, cohort roster | Not started |
 | [`sprint-3-learner-progress-lessons.md`](./sprints/sprint-3-learner-progress-lessons.md) | Learner progress home, lesson viewer, assessments, help request | Not started |

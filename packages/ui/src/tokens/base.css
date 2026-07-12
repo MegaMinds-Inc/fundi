@@ -1,0 +1,25 @@
+/* Fundi base reset. font-family/box-sizing are declared once here so every
+   consumer inherits them by default — screens should still set fontFamily
+   explicitly on top-level wrappers (inline-style components don't cascade
+   font onto every child the way a stylesheet would), but this is the safety
+   net that prevents any missed element from falling back to the browser's
+   serif default. */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: var(--font-body);
+  color: var(--color-text-body);
+}
+
+/* Fundi link defaults — every consumer gets these even before the user adds real links. */
+a {
+  color: var(--color-accent-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+a:hover {
+  color: var(--color-accent-primary-strong);
+  text-decoration: underline;
+}

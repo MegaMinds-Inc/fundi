@@ -1,0 +1,52 @@
+# Local development infrastructure for Fundi.
+# Postgres backs the Prisma domain model (ADR-006); Redis backs BullMQ drip/scheduling (ADR-009).
+# Nothing here is production config — credentials are deliberately trivial and local-only.
+#
+# Usage:
+#   docker compose up -d          # start Postgres + Redis in the background
+#   docker compose ps             # check both are healthy
+#   docker compose down           # stop, keeping data
+#   docker compose down -v        # stop AND wipe data (reset local DB to empty)
+#
+# apps/api reads DATABASE_URL / REDIS_URL from its .env — copy apps/api/.env.example
+# to apps/api/.env and the defaults there already point at these services.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fundi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fundi
+      POSTGRES_PASSWORD: fundi
+      POSTGRES_DB: fundi
+    ports:
+      - "5432:5432"
+    volumes:
+      - fundi-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` returns 0 only once Postgres is actually accepting connections,
+      # so `depends_on: condition: service_healthy` (and humans running `docker compose ps`)
+      # get a truthful ready/not-ready signal rather than "container started".
+      test: ["CMD-SHELL", "pg_isready -U fundi -d fundi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: fundi-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - fundi-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  fundi-postgres-data:
+  fundi-redis-data:
