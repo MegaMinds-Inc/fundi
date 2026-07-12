@@ -65,6 +65,9 @@ describe('org isolation (integration — needs Postgres)', () => {
       );
       return;
     }
+    // Delete order must respect FKs: Program -> Mentor -> Organisation
+    // (Program.ownerMentorId references Mentor; Mentor.organisationId references Organisation).
+    await raw.program.deleteMany({ where: { organisationId: { in: [ORG_A, ORG_B] } } });
     await raw.mentor.deleteMany({ where: { organisationId: { in: [ORG_A, ORG_B] } } });
     await raw.organisation.deleteMany({ where: { id: { in: [ORG_A, ORG_B] } } });
     await seedOrg(ORG_A, 'A program');
@@ -73,13 +76,20 @@ describe('org isolation (integration — needs Postgres)', () => {
 
   after(async () => {
     if (dbAvailable) {
+      // Same FK-respecting order as the before() cleanup above.
+      await raw.program.deleteMany({ where: { organisationId: { in: [ORG_A, ORG_B] } } });
       await raw.mentor.deleteMany({ where: { organisationId: { in: [ORG_A, ORG_B] } } });
       await raw.organisation.deleteMany({ where: { id: { in: [ORG_A, ORG_B] } } });
     }
     await raw.$disconnect();
   });
 
-  it("returns zero of Org B's rows when querying as Org A", { skip: !dbAvailable }, async () => {
+  it("returns zero of Org B's rows when querying as Org A", async (t) => {
+    // `dbAvailable` is only known once the async before() hook has run, so the
+    // skip decision must happen at run time (t.skip()), not via the `skip`
+    // test option — that option is evaluated synchronously when describe()
+    // registers the test, before before() has had a chance to run.
+    if (!dbAvailable) return t.skip('no reachable Postgres at DATABASE_URL');
     const asA = await runWithOrgContext({ organisationId: ORG_A }, () => scoped.program.findMany());
     assert.equal(asA.length, 1, 'Org A should see exactly its own one program');
     assert.equal(asA[0].title, 'A program');
@@ -89,7 +99,8 @@ describe('org isolation (integration — needs Postgres)', () => {
     );
   });
 
-  it('throws instead of running unscoped with no org context', { skip: !dbAvailable }, async () => {
+  it('throws instead of running unscoped with no org context', async (t) => {
+    if (!dbAvailable) return t.skip('no reachable Postgres at DATABASE_URL');
     await assert.rejects(() => scoped.program.findMany(), MissingOrgContextError);
   });
 });

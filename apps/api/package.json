@@ -6,7 +6,7 @@
     "postinstall": "prisma generate",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint . --max-warnings=0",
-    "test": "node -r ts-node/register --test \"src/**/*.test.ts\"",
+    "test": "node --env-file-if-exists=.env -r ts-node/register --test \"src/**/*.test.ts\"",
     "dev": "node --watch -r ts-node/register src/main.ts",
     "boundaries": "depcruise --config .dependency-cruiser.cjs src",
     "prisma:generate": "prisma generate",
