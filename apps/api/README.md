@@ -52,7 +52,7 @@ These need a local Postgres (`docker compose up -d` from the repo root — see t
 ```
 docker compose up -d                    # start Postgres + Redis
 cp apps/api/.env.example apps/api/.env   # DATABASE_URL / REDIS_URL defaults match compose
-pnpm --filter api prisma migrate dev     # apply prisma/migrations to the local DB
+pnpm --filter api prisma:migrate         # = prisma migrate dev; apply migrations to the local DB
 pnpm --filter api test                   # runs the DB-backed org-isolation integration test too
 ```
 

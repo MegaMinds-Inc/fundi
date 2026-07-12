@@ -188,7 +188,7 @@ Reference: Fundi Technical Architecture ADR v0.5, §4.13, §10 (NOW phase), ADR-
 **Objective:** The rules that are easy to forget once the team grows past who was in the ADR discussion, written down where a new engineer will actually see them.
 
 **Do:**
-*   `README.md`: local dev bootstrap (clone → `pnpm install` → `docker compose up -d` → `pnpm --filter api prisma migrate dev` → `pnpm turbo dev`)
+*   `README.md`: local dev bootstrap (clone → `pnpm install` → `docker compose up -d` → `pnpm --filter api prisma:migrate` → `pnpm turbo dev`)
 *   `CONTRIBUTING.md` covering, explicitly:
     *   Use `pnpm`, never `npm`/`yarn` — strict resolution is load-bearing for the workspace boundary, not a style preference (ADR-013)
     *   Every PR touching a tenant-scoped table must include `organisation_id` — enforced via repository base class, not code review memory (ADR-008)

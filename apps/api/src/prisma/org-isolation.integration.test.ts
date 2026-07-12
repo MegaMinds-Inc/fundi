@@ -9,7 +9,7 @@ import { scopeOperation } from './scope-operation';
  *
  * Requires a live Postgres with the migration applied:
  *   docker compose up -d
- *   pnpm --filter api prisma migrate dev
+ *   pnpm --filter api prisma:migrate
  *   pnpm --filter api test
  *
  * If DATABASE_URL isn't set/reachable (e.g. Docker not up), the suite SKIPS
@@ -61,7 +61,7 @@ describe('org isolation (integration — needs Postgres)', () => {
     } catch {
       console.warn(
         '⚠ Skipping org-isolation integration test: no reachable Postgres at DATABASE_URL. ' +
-          'Run `docker compose up -d && pnpm --filter api prisma migrate dev` to enable it.',
+          'Run `docker compose up -d && pnpm --filter api prisma:migrate` to enable it.',
       );
       return;
     }

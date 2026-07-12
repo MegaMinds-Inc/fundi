@@ -74,4 +74,4 @@ fails, then revert.
 
 - Branch off `main`; keep PRs scoped to one concern.
 - A PR touching `apps/api/prisma/schema.prisma` must include the generated migration
-  (`pnpm --filter api prisma migrate dev`) and keep `TENANT_SCOPED_MODELS` in sync (rule 2).
+  (`pnpm --filter api prisma:migrate`) and keep `TENANT_SCOPED_MODELS` in sync (rule 2).

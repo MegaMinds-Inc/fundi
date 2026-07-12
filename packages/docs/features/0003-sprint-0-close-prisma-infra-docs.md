@@ -82,12 +82,12 @@ it, which is exactly the "left to individual query authors" failure mode ADR-008
 
 - **Add a tenant-scoped model:** add it to `schema.prisma` with `organisation_id`, add its name to
   `TENANT_SCOPED_MODELS` in `src/prisma/org-scope.ts` (the completeness test fails if you forget),
-  run `pnpm --filter api prisma migrate dev` to generate the migration.
+  run `pnpm --filter api prisma:migrate` to generate the migration.
 - **Verify offline (no DB):** `pnpm --filter api test` (unit scoping tests + integration test
   auto-skips), `pnpm --filter api build`, `pnpm --filter api lint`, and `pnpm --filter api boundaries`
   (under `nvm use`).
 - **Complete the runtime verification (needs Docker):** `docker compose up -d` →
-  `cp apps/api/.env.example apps/api/.env` → `pnpm --filter api prisma migrate dev` →
+  `cp apps/api/.env.example apps/api/.env` → `pnpm --filter api prisma:migrate` →
   `pnpm --filter api test` (now the org-isolation integration test runs for real). These are the
   two Sprint 0 acceptance criteria still pending the one-time Docker Desktop WSL-integration
   enablement.

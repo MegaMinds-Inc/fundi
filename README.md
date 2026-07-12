@@ -45,7 +45,7 @@ docker compose ps                              # both should report "healthy"
 
 # 3. Point the API at the local DB/queue and apply the schema.
 cp apps/api/.env.example apps/api/.env         # defaults already match docker-compose
-pnpm --filter api prisma migrate dev           # applies prisma/migrations to the local DB
+pnpm --filter api prisma:migrate               # = prisma migrate dev; applies migrations to the local DB
 
 # 4. Run everything (or a single app).
 pnpm turbo dev                                 # all apps
