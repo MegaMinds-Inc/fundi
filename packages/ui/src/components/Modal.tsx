@@ -1,6 +1,8 @@
 'use client';
 
+import { useId } from 'react';
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
+import { useDialogA11y } from '../lib/useDialogA11y';
 
 export interface ModalProps {
   open: boolean;
@@ -11,12 +13,31 @@ export interface ModalProps {
   style?: CSSProperties;
 }
 
+const CLOSE_BUTTON_STYLE: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'none',
+  border: 'none',
+  padding: 4,
+  margin: -4,
+  cursor: 'pointer',
+  color: 'var(--color-text-muted)',
+  fontSize: 16,
+  lineHeight: 1,
+  borderRadius: 'var(--radius-sm)',
+};
+
 /**
- * Centered modal. Positioned `absolute` within the nearest positioned ancestor
- * (per the design handoff — screens render it inside a positioned app shell);
- * wrap in a `position: relative` / full-viewport container for a page-level dialog.
+ * Centered modal dialog. Positioned `absolute` within the nearest positioned
+ * ancestor (per the design handoff — screens render it inside a positioned app
+ * shell); wrap in a `position: relative` / full-viewport container for a
+ * page-level dialog. Focus is trapped while open, Escape closes it, and focus
+ * returns to the trigger on close (see useDialogA11y).
  */
 export function Modal({ open, title, children, footer, onClose, style }: ModalProps) {
+  const dialogRef = useDialogA11y(open, onClose);
+  const titleId = useId();
   if (!open) return null;
   return (
     <div
@@ -32,6 +53,11 @@ export function Modal({ open, title, children, footer, onClose, style }: ModalPr
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
         onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
         style={{
           width: 360,
@@ -42,6 +68,7 @@ export function Modal({ open, title, children, footer, onClose, style }: ModalPr
           boxShadow: 'var(--shadow-popover)',
           fontFamily: 'var(--font-body)',
           overflow: 'hidden',
+          outline: 'none',
           ...style,
         }}
       >
@@ -56,6 +83,7 @@ export function Modal({ open, title, children, footer, onClose, style }: ModalPr
             }}
           >
             <span
+              id={titleId}
               style={{
                 fontFamily: 'var(--font-display)',
                 fontWeight: 700,
@@ -65,12 +93,9 @@ export function Modal({ open, title, children, footer, onClose, style }: ModalPr
             >
               {title}
             </span>
-            <span
-              onClick={onClose}
-              style={{ cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: 16 }}
-            >
+            <button type="button" aria-label="Close" onClick={onClose} style={CLOSE_BUTTON_STYLE}>
               ×
-            </span>
+            </button>
           </div>
         )}
         <div style={{ padding: 20 }}>{children}</div>

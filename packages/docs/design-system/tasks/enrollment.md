@@ -103,18 +103,32 @@ just a CSS density tweak, per the handoff.
 
 ---
 
-## Task: Composed-page story — "Enrollment & Roster" (Creator)
+## Task: App screen — "Enrollment & Roster" (Creator)
 
-**What it is:** Storybook equivalent of `ui_kits/enrollment/index.html` — tabbed screen ("Invite &
-approve" / "Cohorts & roster") switching between `InviteApprove` and `CohortRoster`, with a
-device-size toggle demonstrating `dense` switching automatically at the desktop breakpoint.
+**What it is:** The real screen in **`apps/creator`** — tabbed ("Invite & approve" / "Cohorts &
+roster") switching between `InviteApprove` and `CohortRoster`, with `dense` switching automatically
+at the desktop breakpoint. `ui_kits/enrollment/index.html` is the design reference.
 
-**Do:** `packages/ui/src/pages/EnrollmentRoster.stories.tsx`. Reuse the handoff's demo data (2
-pending invites; 2 cohorts — one with 4 learners, one empty). Approve/decline should visibly move
-an entry out of the pending list and (conceptually) onto the roster within the story's local state,
-matching the handoff's own interactive demo behavior.
+**Do:** Assemble the modules in the creator app against real enrollment/cohort data. Approve/decline
+moves an entry out of the pending list and onto the roster (via the real mutation).
 
 **Acceptance criteria:**
-- [ ] Tab switch and device-size toggle both work independently and together.
-- [ ] Approve/decline actions visibly update pending list and roster in the story's local state,
-      not just log to Actions.
+- [ ] Tab switch and responsive `dense` switch both work independently and together.
+- [ ] Approve/decline actions update the pending list and roster against real state.
+
+---
+
+## Item & composition modules
+
+Finer pieces the feature modules above compose (all in `packages/ui/src/modules/`, co-located story each):
+
+- **`PendingInviteRow`** (I) — one pending-approval row: `AvatarInitial` + name + phone +
+  `RelativeTime` + Decline (ghost sm) / Approve (primary sm). Props: `{ name; phone; hoursAgo;
+  onApprove; onDecline }`. Used by `InviteApprove`.
+- **`CohortTab`** (I) — a cohort selector pill showing name + learner count. Props:
+  `{ name; count; active; onSelect }`. Used by `CohortRoster`.
+- **`RosterRow`** (I) — one learner in a roster: `AvatarInitial` + name + `ProgressBar`/percent +
+  `EnrollmentBadge`. Renders as a card cell (mobile) or table row (`dense`). Props:
+  `{ name; progressPercent; state: EnrollmentState; dense? }`.
+
+Shared primitives used here: `AvatarInitial`, `ProgressBar` (see `shared-utilities.md`).

@@ -7,8 +7,8 @@ here has shipped yet) and not a ClickUp mirror (per the request, these tasks liv
 markdown, not ClickUp tickets) — this is a forward-looking backlog for the team.
 
 See also: [`../architecture/0001-storybook-for-design-system-workflow.md`](../architecture/0001-storybook-for-design-system-workflow.md)
-for the tooling recommendation these tasks assume (Storybook for isolated dev + composed-page
-previews).
+for the tooling recommendation these tasks assume (Storybook for isolated component/module dev and
+review — full pages/screens are built in the apps, not mocked in Storybook).
 
 ## Audit results (2026-07-12)
 
@@ -17,7 +17,7 @@ previews).
 | **Tokens** (`packages/ui/src/tokens/*.css` vs. handoff `tokens/*.css`) | **100% match** — 97/97 custom properties verified across colors, typography, spacing, radius, shadow, layout, fonts, base. Zero missing, zero extra, zero value discrepancies. Dark-default / `[data-theme="light"]` structure matches exactly. |
 | **Base components** (9: Button, Input, Card, Badge, Tag, Tabs, Modal, Drawer, EmptyState) | **100% match** — every variant, size, state, and slot from the handoff is implemented; `packages/ui/README.md`'s claims verified accurate against real source, not just trusted. A couple of reasonable implementation-side enhancements (e.g. `Input`'s `type`/`inputMode` for phone/OTP, `Tabs`' `variant` prop — the handoff's own `.d.ts` was incomplete here, implementation fixed it). |
 | **Composite/feature modules** | **0/21 built.** The `ui_kits/` folder implies 21 distinct modules across 6 feature areas, each combining base components into something screen-specific — none exist in `packages/ui` yet. Full backlog below. |
-| **Tooling** | No Storybook or equivalent — no way to develop/review a component or composed page in isolation. See the ADR linked above. |
+| **Tooling** | No Storybook or equivalent — no way to develop/review a component or module in isolation. See the ADR linked above. |
 
 Two minor **documentation** gaps found (not token bugs, don't need a dev task): the handoff's
 `guidelines/iconography.html` specifies Phosphor (regular weight, CDN, 20–24px, default 22px) but
@@ -33,12 +33,12 @@ BRD/epic each belongs to). Each area's tasks are in its own file:
 
 | File | Feature area | App | Modules |
 |---|---|---|---|
-| [`tasks/ai-draft-review.md`](./tasks/ai-draft-review.md) | AI Drafting & Triage (BRD) | Creator | AuditTrail, DraftQueue, DraftEditor + composed page |
-| [`tasks/auth-flow.md`](./tasks/auth-flow.md) | Identity & Auth (Sprint 1) | Shared | AuthFlow + composed page |
-| [`tasks/creator-triage-queue.md`](./tasks/creator-triage-queue.md) | Signals & Attention Triage (Sprint 4) | Creator | SignalBadge, ExceptionCard, FilterSortBar, ActionSheet + composed page |
-| [`tasks/enrollment.md`](./tasks/enrollment.md) | Enrollment & Cohort Management (Sprint 2) | Creator | EnrollmentBadge, InviteApprove, CohortRoster + composed page |
-| [`tasks/learner-progress.md`](./tasks/learner-progress.md) | Learner Progress & Lessons (Sprint 3) | Learner | ProgressHome, ModuleLessonNav, LessonViewer, LoadingStates, AssessmentFlow, HelpCapture + composed page |
-| [`tasks/program-builder.md`](./tasks/program-builder.md) | Program & Curriculum Builder (BRD) | Creator | ProgramSetup, ModuleTree, LessonEditor, PublishBar + composed page |
+| [`tasks/ai-draft-review.md`](./tasks/ai-draft-review.md) | AI Drafting & Triage (BRD) | Creator | AuditTrail, DraftQueue, DraftEditor + app screen |
+| [`tasks/auth-flow.md`](./tasks/auth-flow.md) | Identity & Auth (Sprint 1) | Shared | AuthFlow + app screen |
+| [`tasks/creator-triage-queue.md`](./tasks/creator-triage-queue.md) | Signals & Attention Triage (Sprint 4) | Creator | SignalBadge, ExceptionCard, FilterSortBar, ActionSheet + app screen |
+| [`tasks/enrollment.md`](./tasks/enrollment.md) | Enrollment & Cohort Management (Sprint 2) | Creator | EnrollmentBadge, InviteApprove, CohortRoster + app screen |
+| [`tasks/learner-progress.md`](./tasks/learner-progress.md) | Learner Progress & Lessons (Sprint 3) | Learner | ProgressHome, ModuleLessonNav, LessonViewer, LoadingStates, AssessmentFlow, HelpCapture + app screen |
+| [`tasks/program-builder.md`](./tasks/program-builder.md) | Program & Curriculum Builder (BRD) | Creator | ProgramSetup, ModuleTree, LessonEditor, PublishBar + app screen |
 | [`tasks/shared-utilities.md`](./tasks/shared-utilities.md) | Cross-cutting | Shared | `SIGNAL_META` port (blocks SignalBadge, FilterSortBar) |
 
 **Build order note:** `shared-utilities.md`'s `SIGNAL_META` port is a hard prerequisite for
@@ -50,6 +50,14 @@ already in `packages/docs/clickup-sync/sprints/sprint-1-identity-org-design-syst
 
 Every module's task entry includes: what it is, its props/API (taken directly from the design
 handoff's JSX, not re-derived), which base components it composes, its behavior/state, which app
-it belongs to, and suggested acceptance criteria. Each area's file ends with a **composed-page
-task** — the Storybook `pages/*.stories.tsx` equivalent of that `ui_kit`'s `index.html` mockup,
-assembling the area's modules with the same demo data the handoff used.
+it belongs to, and suggested acceptance criteria. Each area's file ends with an **app-screen
+assembly task** — building the real screen in the owning app (`apps/creator` / `apps/learner`) by
+composing that area's modules, using the `ui_kit`'s `index.html` mockup as the design reference.
+These are *not* Storybook mock pages: `packages/ui` owns reusable components + modules only, and
+screen assembly (routing, data, app shell) belongs in the apps — see the ADR.
+
+The 21 named modules below are a **floor, not a ceiling.** Any isolatable composition earns a place
+in `packages/ui/src/modules/` — including finer pieces the tables don't name yet, e.g. the single
+row a listing repeats (`LessonRow`, a roster row) is its own module that the listing module
+composes. A module needn't be cross-app to belong here (an app only bundles what it imports), and
+names may be generic or contextual.

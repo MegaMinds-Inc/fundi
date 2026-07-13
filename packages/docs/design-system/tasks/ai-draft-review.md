@@ -129,20 +129,32 @@ x-circle for rejected) tone-colored, recipient, draft text (italicized specifica
 
 ---
 
-## Task: Composed-page story — "AI Draft Review" (Creator)
+## Task: App screen — "AI Draft Review" (Creator)
 
-**What it is:** Storybook equivalent of `ui_kits/ai-draft-review/index.html` — a tabbed screen
-switching between `DraftQueue` ("Needs review (N)") and `AuditTrail` ("History"), with
-`DraftEditor` overlaying as a drawer when a draft is selected.
+**What it is:** The real review screen in **`apps/creator`** — a tabbed screen switching between
+`DraftQueue` ("Needs review (N)") and `AuditTrail` ("History"), with `DraftEditor` overlaying as a
+drawer when a draft is selected. `ui_kits/ai-draft-review/index.html` is the design reference.
 
-**Do:** `packages/ui/src/pages/AiDraftReview.stories.tsx`, using the base `Tabs` component
-(underline variant, per the handoff) to switch panels, local Storybook-story state for the
-selected draft, reusing the handoff's demo data (3 drafts across kinds, 3 audit entries covering
-all three `action` values).
+**Do:** Assemble the modules in the creator app using the base `Tabs` (underline variant) to switch
+panels, wiring the selected-draft state and approve/reject to the real AI-draft API (ADR-011).
 
 **Acceptance criteria:**
-- [ ] Tab switch correctly swaps `DraftQueue`/`AuditTrail` without losing either's state.
-- [ ] Selecting a draft from the queue opens `DraftEditor`; approve/reject closes it and (in the
-      story) would conceptually move the item into the audit trail (wiring actual list mutation in
-      the story is optional — Storybook Actions logging the callback is sufficient for review
-      purposes).
+- [ ] Tab switch swaps `DraftQueue`/`AuditTrail` without losing either's state.
+- [ ] Selecting a draft opens `DraftEditor`; approve/reject closes it and moves the item into the
+      audit trail (via the real mutation).
+
+---
+
+## Item & composition modules
+
+Finer pieces the feature modules above compose (all in `packages/ui/src/modules/`, co-located story each):
+
+- **`DraftCard`** (I) — one pending draft: kind `Badge` + recipient + `RelativeTime` +
+  2-line-clamped preview + "Review draft" button. Whole card and button both fire `onReview`. Props:
+  `{ kind; recipient; minutesAgo; text; onReview }`. Used by `DraftQueue`.
+- **`VariableChip`** (I) — a locked, non-editable teal template-variable pill (ADR-005). Props:
+  `{ name; value }`. Used by `DraftEditor`.
+- **`AuditRow`** (I) — one history entry: action icon/tone (sent / sent_unedited / rejected) +
+  recipient + text (italic when rejected) + timestamp. Props: `{ action; recipient; text; when }`.
+
+Shared primitives used here: `MessageComposer` (DraftEditor edit-and-send), `RelativeTime`.

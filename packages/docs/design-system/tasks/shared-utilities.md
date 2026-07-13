@@ -56,3 +56,31 @@ const SIGNAL_META = {
       covered by a unit test (mirrors the pattern already established in
       `apps/api/src/prisma/org-scope.test.ts`).
 - [ ] No `window.SIGNAL_META` global anywhere in the built output.
+
+---
+
+## Shared primitives & compositions (build early — used across ≥2 pages)
+
+Small reusable pieces multiple feature modules compose. All live in `packages/ui/src/modules/`
+(or `src/components/` if truly primitive), each with a co-located story, exported from the single
+`src/index.ts` barrel. A piece living here doesn't have to be full-page — that's the point.
+
+- **`OtpInput`** (C) — ✅ built (`src/modules/OtpInput.tsx`). N-box numeric code entry (auto-advance,
+  backspace, arrow-nav, paste/autofill). Extracted from `AuthFlow`; reusable for any code/PIN entry.
+- **`MessageComposer`** (C) — textarea + primary send button (+ optional context slot). Props:
+  `{ value; onChange; onSend; placeholder?; sendLabel?; disabled? }`. Composes `Button`. Shared by
+  `ActionSheet`, `DraftEditor`, `HelpCapture` — the edit-then-send pattern they all repeat. AC: send
+  disabled until non-empty (trimmed); story shows empty / typed / disabled.
+- **`AvatarInitial`** (P) — initial-in-a-circle avatar. Props: `{ name; size?; tone? }`; derives the
+  initial(s) from `name`. Used by `PendingInviteRow`, `RosterRow`. AC: correct initial for 1- and
+  2-word names (unit-testable, like `getSignalMeta`); story shows a few names + sizes.
+- **`ProgressBar`** (P) — pill-shaped progress bar. Props: `{ percent (0–100); tone? }`. Used by
+  `ProgressHome`, `RosterRow`. AC: width clamps at 0 and 100; story at 0 / 40 / 100.
+- **`RelativeTime`** (P) — "3h ago" / "2d ago" formatting. Props: `{ minutesAgo?; hoursAgo? }` (pure).
+  Used by `ExceptionCard`, `PendingInviteRow`, `DraftCard`, `AuditRow`. AC: minutes/hours/days
+  thresholds (unit-testable); story a couple of values.
+- **`Fab`** (P) — fixed circular floating action button. Props: `{ icon; onClick; ariaLabel; tone? }`.
+  Backs `HelpButton`. AC: fixed-position, keyboard-focusable `<button>`; story in a positioned stage.
+- **`Spinner`** (P) — CSS `@keyframes fundi-spin` loader (add the keyframes to `styles.css` /
+  `tokens/animation.css` — CSS keyframes can't be inline). Props: `{ size? }`. Used by `VideoLoading`.
+  AC: actually animates; story at a couple of sizes.

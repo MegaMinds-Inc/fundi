@@ -54,19 +54,26 @@ a mocked verifier in Storybook and the real API in the apps.
 - [ ] Storybook stories cover: phone step (empty, error), OTP step (empty, wrong-code error,
       expired error, cooldown active), success step.
 
-## Task: Composed-page story — "Auth Flow" (both apps)
+## Task: App screen — "Auth" (both apps)
 
-**What it is:** The Storybook equivalent of the handoff's `ui_kits/auth-flow/index.html` — a
-`pages/AuthFlow.stories.tsx` in `packages/ui` demonstrating the exact same tab-switcher pattern the
-handoff used (toggle between "as Creator" / "as Learner"), proving the one `AuthFlow` component
-serves both apps with only `appName`/`onSuccess` varying.
+**What it is:** The real login screen, built in **both apps** — `apps/creator/app/login/page.tsx`
+and `apps/learner/app/login/page.tsx` — each mounting the shared `AuthFlow` module from `@fundi/ui`.
+The handoff's `ui_kits/auth-flow/index.html` is the design reference. This proves the one `AuthFlow`
+component serves both apps with only `appName`/`onSuccess`/`onVerifyOtp` varying.
 
-**Do:** Two stories (or one story with a Storybook control toggling the app context) — `Creator`
-passing `appName="your Creator dashboard"`, `Learner` passing `appName="your Learner home"`. Each
-`onSuccess` logs to the Storybook Actions panel (no real navigation needed at this stage).
+**Do:** In each app, render `AuthFlow` with the app's `appName` ("your Creator dashboard" /
+"your Learner home"), wire `onVerifyOtp` to the real OTP verification (Sprint 1 Identity & Auth
+US-002 — backend tracked separately) and `onSuccess` to the app's post-login navigation.
 
 **Acceptance criteria:**
-- [ ] Both stories render inside the same phone-frame viewport the handoff used (390×760) via a
-      Storybook viewport preset, so the preview genuinely matches what the handoff showed.
-- [ ] Confirms visually (for team/design review) that swapping `appName` is the only difference
-      needed per app — if it isn't, that's a signal `AuthFlow`'s prop surface is incomplete.
+- [ ] Both apps render the login screen mobile-first at the width the handoff used (≈390px).
+- [ ] Swapping `appName`/`onSuccess`/`onVerifyOtp` is the only per-app difference — if more is
+      needed, that's a signal `AuthFlow`'s prop surface is incomplete.
+
+---
+
+## Item & composition modules
+
+- **`OtpInput`** (C) — ✅ built (`src/modules/OtpInput.tsx`). Extracted from `AuthFlow`'s OTP step:
+  an N-box numeric grid (auto-advance, backspace, arrow-nav, paste/autofill). Reusable standalone;
+  see the shared-primitives list in `shared-utilities.md`.

@@ -3,7 +3,7 @@
 Maps to Sprint 4 (`packages/docs/clickup-sync/sprints/sprint-4-needs-you-attention-triage.md`) and
 ADR-010 (Signal stream + rules-based scoring). **Build order:** `shared-utilities.md`'s
 `SIGNAL_META` port → `SignalBadge` → `ExceptionCard`/`ActionSheet` (both use `SignalBadge`) →
-`FilterSortBar` (independent, can parallelize) → composed page.
+`FilterSortBar` (independent, can parallelize) → app screen.
 
 ---
 
@@ -70,7 +70,7 @@ clicking them doesn't also fire `onOpen()` (this exact behavior was explicit in 
 - [ ] Card click and button clicks fire distinct, correct callbacks (button clicks must not also
       trigger `onOpen`).
 - [ ] Layout matches handoff at all three breakpoints this card needs to render inside (mobile
-      card stack, tablet 2-up grid — see the composed-page task below for the desktop table
+      card stack, tablet 2-up grid — see the app-screen task below for the desktop table
       variant, which is a different rendering, not this component reused at a smaller size).
 - [ ] Storybook stories: with/without `suggestion`, each `SignalType`, long learner-name
       truncation.
@@ -155,24 +155,37 @@ CSS behaviors over, they're load-bearing for the "more content scrolls right" af
 
 ---
 
-## Task: Composed-page story — "Needs You" queue (Creator)
+## Task: App screen — "Needs You" queue (Creator)
 
-**What it is:** The Storybook equivalent of `ui_kits/creator-triage-queue/index.html` — assembles
-`FilterSortBar` + a queue of `ExceptionCard`s + `ActionSheet` overlay + an empty state, at all
-three responsive breakpoints the handoff demonstrated.
+**What it is:** The real triage screen in **`apps/creator`** — assembles `FilterSortBar` + a queue
+of `ExceptionCard`s + `ActionSheet` overlay + an empty state, at all three responsive breakpoints.
+`ui_kits/creator-triage-queue/index.html` is the design reference.
 
-**Do:** `packages/ui/src/pages/NeedsYouQueue.stories.tsx`. Reproduce the handoff's per-breakpoint
-layout switch: **mobile (390px)** card stack, **tablet (820px)** 2-up grid, **desktop (1200px)**
-dense table (a distinct rendering, not `ExceptionCard` reused smaller — the handoff's desktop view
-is a grid/table with columns: learner / cohort / signal / stale time / actions). Include a snooze
-confirmation toast ("Undo" affordance) and a toggle-able empty state ("No one needs you right
-now" via the base `EmptyState` component). Reuse the handoff's demo data (5 queue items spanning
-different signals).
+**Do:** Assemble the modules in the creator app against the real signal queue. Reproduce the
+per-breakpoint layout switch: **mobile (390px)** card stack, **tablet (820px)** 2-up grid,
+**desktop (1200px)** dense table (a distinct rendering, not `ExceptionCard` reused smaller — the
+desktop view is a grid/table: learner / cohort / signal / stale time / actions). Include a snooze
+confirmation toast ("Undo") and the `EmptyState` "No one needs you right now".
 
 **Acceptance criteria:**
-- [ ] All three breakpoints reproduced via Storybook viewport presets, matching the handoff's
-      layouts (verify against the extracted `index.html` if precision is in question).
-- [ ] Selecting a queue item opens `ActionSheet` correctly; snoozing removes the item and shows
-      the undo toast.
-- [ ] Empty state reachable via a Storybook control/toggle, not just by emptying demo data
-      manually each time.
+- [ ] All three breakpoints match the handoff's layouts (verify against `index.html` if precision
+      is in question).
+- [ ] Selecting a queue item opens `ActionSheet`; snoozing removes the item and shows the undo toast.
+- [ ] Empty state renders when the queue is empty.
+
+---
+
+## Item & composition modules
+
+Finer pieces the feature modules above compose (all in `packages/ui/src/modules/`, co-located story each):
+
+- **`ExceptionTableRow`** (I) — the **desktop** table-row rendering of a queue item (columns:
+  learner / cohort / signal / stale / actions). A distinct rendering from `ExceptionCard`
+  (mobile/tablet), per the handoff — not the card reused smaller. Props mirror `ExceptionCardProps`.
+- **`SnoozePicker`** (C) — inline popover with 1 day / 3 days / 1 week (3 days = default). Props:
+  `{ onSnooze: (days: 1 | 3 | 7) => void }`. Used by `ActionSheet`.
+- **`FilterTagRow`** (C) — horizontally-scrollable `Tag` row with right-edge fade + scroll-snap +
+  hidden scrollbar. Props: `{ options; value; onChange }`. Used by `FilterSortBar`.
+- **`SortToggle`** (I) — "most stale / least stale" toggle. Props: `{ sort: 'newest' | 'oldest'; onSort }`.
+
+Shared primitives used here: `MessageComposer` (ActionSheet reply), `RelativeTime` (stale time).

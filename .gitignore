@@ -5,6 +5,7 @@ build/
 *.tsbuildinfo
 .next/
 out/
+storybook-static/
 .env
 .env.local
 .env.*.local

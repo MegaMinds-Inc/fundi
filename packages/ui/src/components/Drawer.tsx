@@ -1,6 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useId } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
+import { useDialogA11y } from '../lib/useDialogA11y';
 
 /**
  * Bottom drawer / action sheet — mobile-first alternative to the centered
@@ -29,6 +31,21 @@ export interface DrawerProps {
   heightPercent?: string;
 }
 
+const CLOSE_BUTTON_STYLE: CSSProperties = {
+  flex: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--color-text-muted)',
+  fontSize: 18,
+  lineHeight: 1,
+  padding: 4,
+  borderRadius: 'var(--radius-sm)',
+};
+
 export function Drawer({
   open,
   title,
@@ -39,6 +56,8 @@ export function Drawer({
   footer,
   heightPercent = '88%',
 }: DrawerProps) {
+  const dialogRef = useDialogA11y(open, onClose);
+  const titleId = useId();
   return (
     <>
       <div
@@ -54,6 +73,15 @@ export function Drawer({
         }}
       />
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
+        // Stays mounted (for the slide transition) but must not be focusable or
+        // interactive while closed — `inert` removes the whole subtree from the
+        // tab order and pointer/AT interaction.
+        inert={!open}
         style={{
           position: 'absolute',
           left: 0,
@@ -69,6 +97,7 @@ export function Drawer({
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          outline: 'none',
           transform: open ? 'translateY(0)' : 'translateY(100%)',
           transition: 'transform 260ms cubic-bezier(.4,0,.2,1)',
         }}
@@ -105,6 +134,7 @@ export function Drawer({
               <div style={{ minWidth: 0 }}>
                 {title && (
                   <div
+                    id={titleId}
                     style={{
                       fontFamily: 'var(--font-display)',
                       fontWeight: 800,
@@ -134,19 +164,9 @@ export function Drawer({
                   </div>
                 )}
               </div>
-              <div
-                onClick={onClose}
-                style={{
-                  flex: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--color-text-muted)',
-                  fontSize: 18,
-                  lineHeight: 1,
-                  padding: 4,
-                }}
-              >
+              <button type="button" aria-label="Close" onClick={onClose} style={CLOSE_BUTTON_STYLE}>
                 ×
-              </div>
+              </button>
             </div>
             {signalSlot && <div style={{ marginTop: 10 }}>{signalSlot}</div>}
           </div>

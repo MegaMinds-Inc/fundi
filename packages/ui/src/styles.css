@@ -16,4 +16,6 @@
 @import './tokens/radius.css';
 @import './tokens/shadow.css';
 @import './tokens/layout.css';
+@import './tokens/animation.css';
+@import './tokens/utilities.css';
 @import './tokens/base.css';

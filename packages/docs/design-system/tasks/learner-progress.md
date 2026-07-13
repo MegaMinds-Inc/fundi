@@ -208,22 +208,37 @@ real Signal-emission call slots in cleanly later.
 
 ---
 
-## Task: Composed-page story — "Progress & Lessons" (Learner)
+## Task: App screen — "Progress & Lessons" (Learner)
 
-**What it is:** Storybook equivalent of `ui_kits/learner-progress/index.html` — the full
-stack-navigation flow: Home (`ProgressHome`) → Lessons list (`ModuleLessonNav`) →
-Viewer/Quiz (`LessonViewer`/`AssessmentFlow`), plus a states-demo panel
-(`OfflineBanner`/`VideoLoading`/`RetryState`) and the floating `HelpButton`/`HelpCapture` reachable
-from every screen in the stack.
+**What it is:** The real learner flow in **`apps/learner`** — Home (`ProgressHome`) → Lessons list
+(`ModuleLessonNav`) → Viewer/Quiz (`LessonViewer`/`AssessmentFlow`), with the
+`OfflineBanner`/`VideoLoading`/`RetryState` states surfaced where they occur and the floating
+`HelpButton`/`HelpCapture` reachable from every screen. `ui_kits/learner-progress/index.html` is
+the design reference.
 
-**Do:** `packages/ui/src/pages/LearnerProgress.stories.tsx`. Reuse the handoff's demo data (3
-modules / 6 lessons / 1 quiz / 1 locked live session). Implement the stack-nav as local story
-state (a simple `screen` state: `'home' | 'lessons' | 'viewer' | 'quiz'`), not real routing —
-that's `apps/learner`'s job once these modules land there for real.
+**Do:** Assemble the modules in the learner app with **real routing** (home / lessons / viewer /
+quiz) and real progress data.
 
 **Acceptance criteria:**
-- [ ] Full navigation stack works: home → lessons → open a lesson → mark done → back to lessons;
+- [ ] Full navigation works: home → lessons → open a lesson → mark done → back to lessons;
       home → open quiz → complete → result.
-- [ ] `HelpButton` reachable and functional from every screen in the stack.
-- [ ] States-demo panel (offline/loading/retry) reachable via a dedicated story or control, not
-      just buried inside the main flow.
+- [ ] `HelpButton` reachable and functional from every screen.
+- [ ] Offline/loading/retry states render in the flows where they apply.
+
+---
+
+## Item & composition modules
+
+Finer pieces the feature modules above compose (all in `packages/ui/src/modules/`, co-located story each):
+
+- **`LessonNavRow`** (I) — one lesson line in `ModuleLessonNav`: type/lock icon + title + meta +
+  caret. Props: `{ title; type: LessonType; locked?; meta; onOpen }`. Locked → 0.45 opacity and
+  **not** clickable (a real interaction block, not just styling).
+- **`QuizOptionCard`** (I) — a clickable answer option (`Card`) in `AssessmentFlow`. Props:
+  `{ label; onPick; state?: 'idle' | 'correct' | 'wrong' }`. Auto-advances on pick (no submit step).
+- **`AssessmentResult`** (C) — pass/fail result screen: score + `Badge` (live=pass / danger=fail) +
+  continue/retry. Props: `{ scorePercent; passed; onContinue }`. ≥70% = pass.
+- **`HelpButton`** (I / FAB) — thin wrapper over the shared **`Fab`** (hand-waving icon, teal) that
+  opens `HelpCapture`. Props: `{ onClick }`.
+
+Shared primitives used here: `ProgressBar` (ProgressHome), `Spinner` (VideoLoading), `Fab` (HelpButton).

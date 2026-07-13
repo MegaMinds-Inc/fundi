@@ -56,8 +56,10 @@ jobs:
       - name: Apply migrations to CI database
         run: pnpm --filter @fundi/api exec prisma migrate deploy
 
+      # `build-storybook` runs only in @fundi/ui (the only package with that task),
+      # gating merges on a broken story before it can be published (ADR-ENG-0001).
       - name: Lint, test, build
-        run: pnpm turbo lint test build
+        run: pnpm turbo lint test build build-storybook
 
       # Authoritative module-boundary + SDK-isolation check (dependency-cruiser).
       - name: Architecture boundaries

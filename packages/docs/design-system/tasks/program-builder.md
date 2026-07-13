@@ -156,18 +156,38 @@ variant switches to primary when active). Publish button hidden/disabled once
 
 ---
 
-## Task: Composed-page story — "Program Builder" (Creator)
+## Task: App screen — "Program Builder" (Creator)
 
-**What it is:** Storybook equivalent of `ui_kits/program-builder/index.html` — two-stage flow
-(`ProgramSetup` → split-panel builder with `ModuleTree` left / `LessonEditor` right, `PublishBar`
-on top, `LearnerPreview` overlaying in preview mode), desktop-primary but responsive down to
-mobile single-column.
+**What it is:** The real builder screen in **`apps/creator`** (e.g. `app/programs/[id]/build/`) —
+two-stage flow (`ProgramSetup` → split-panel builder with `ModuleTree` left / `LessonEditor` right,
+`PublishBar` on top, `LearnerPreview` overlaying in preview mode), desktop-primary but responsive
+down to mobile single-column. `ui_kits/program-builder/index.html` is the design reference.
 
-**Do:** `packages/ui/src/pages/ProgramBuilder.stories.tsx`. Reuse handoff demo data (3 modules / 6
-lessons). Left/right panels scroll independently on desktop; single-column stack on mobile.
+**Do:** Assemble the modules in the creator app, wiring their callbacks to real program state/data.
+Left/right panels scroll independently on desktop; single-column stack on mobile.
 
 **Acceptance criteria:**
 - [ ] Setup → builder transition works correctly (setup can't be skipped without all 3 fields).
-- [ ] Desktop split-panel and mobile single-column layouts both reproduced accurately against the
-      handoff.
+- [ ] Desktop split-panel and mobile single-column layouts both match the handoff.
 - [ ] Preview mode correctly swaps the builder canvas for `LearnerPreview`.
+
+---
+
+## Item & composition modules
+
+Finer pieces the feature modules above compose (all in `packages/ui/src/modules/`, co-located story each):
+
+- **`SelectableOptionCard`** (I) — one selectable option (icon + label + description) with selected
+  vs. plain styling. Props: `{ icon?; label; description?; selected; onSelect }`. `ProgramSetup`
+  renders a grid of these for shape (5) and visibility (2). AC: selected (accent-soft bg + primary
+  border) vs. plain; story both.
+- **`ModuleBlock`** (I) — collapsible module container with inline-editable title + add/reorder
+  controls, wrapping its `LessonRow` children. Props: `{ title; collapsed?; onToggle; onRename;
+  onAddLesson; onMoveUp?; onMoveDown?; children }`. Enter/blur commit rename, Escape cancels.
+- **`LessonRow`** (I) — a lesson line: type icon + title + up/down reorder arrows. Props:
+  `{ title; type: LessonType; active?; onSelect; onMoveUp?; onMoveDown? }`. Arrows disabled at
+  boundaries. AC: correct icon per `LessonType`.
+- **`LessonTypeSelector`** (C) — the 5-option lesson-type pill row (`Tag`s). Props:
+  `{ value: LessonType; onChange }`. Used by `LessonEditor`.
+- **`FileDropZone`** (C) — dashed-border file drop/browse area (attachment lessons). Props:
+  `{ fileName?; onFile }`. Chrome only (no real upload yet).

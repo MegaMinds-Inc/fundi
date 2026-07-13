@@ -70,16 +70,53 @@ Components too.
 | `Badge` | status pill, tone-coded `live` / `draft` / `warn` / `danger` / `neutral`. |
 | `Tag` | curated color set, `selected`, `removable`. |
 | `Tabs` | `pill` / `underline` / `boxed`, animated sliding indicator. |
-| `Modal` | scrim + centered dialog, `title`, `footer`. |
-| `Drawer` | mobile-first bottom action sheet; scrollable body + sticky footer. |
+| `Modal` | scrim + centered dialog, `title`, `footer`. Accessible: `role="dialog"`, focus trap, Escape-to-close, focus restore. |
+| `Drawer` | mobile-first bottom action sheet; scrollable body + sticky footer. Same dialog a11y as `Modal`; `inert` while closed. |
 | `EmptyState` | icon circle + heading + body; `primary` / `neutral` tone. |
 
 `Modal` and `Drawer` position `absolute` within the nearest positioned ancestor (per the design
 handoff) — wrap them in a full-viewport `position: relative` container for a page-level overlay.
 
+Both share `src/lib/useDialogA11y.ts` (focus trap, Escape, focus move-in/restore) — the composite
+modules that wrap `Drawer` (ActionSheet, DraftEditor, HelpCapture) inherit this for free. Their
+close controls are real `<button>`s and each dialog is labelled by its `title` via `aria-labelledby`.
+
+## Responsive & styling
+
+Tokens (CSS custom properties) are the styling foundation. Small, non-responsive presentation is
+inline-styled; **responsive layout, breakpoint variants, and `:hover`/`:focus` states use a
+co-located `*.module.css`** (real `@media` + pseudo-classes, which inline styles can't express). The
+three tiers match `tokens/layout.css` — tablet `768px`, desktop `1200px` — hardcoded in `@media`
+(CSS variables aren't valid inside media conditions).
+
+For a module that renders a genuinely different subtree per breakpoint (e.g. `CohortRoster`'s card
+list vs. dense table), use the SSR-safe `useBreakpoint()` hook; prefer CSS `@media` for pure
+restyling. Existing inline-styled components migrate to CSS Modules incrementally; new modules use
+them from the start.
+
+## Storybook
+
+Every base component has stories in `src/components/*.stories.tsx` — one per variant/state, with
+Controls for the enum/boolean props. Run the explorer:
+
+```bash
+pnpm --filter @fundi/ui storybook        # dev server on :6006
+pnpm --filter @fundi/ui build-storybook  # static export to storybook-static/
+```
+
+A toolbar **Theme** control switches the Pulse dark/light themes (dark is the default, applied via
+`data-theme` on the story wrapper). `Modal`/`Drawer` stories render inside a positioned stage since
+those overlays position `absolute`. Phosphor is loaded via `.storybook/preview-head.html`, mirroring
+the apps. As the composite-module backlog lands, module stories co-locate in
+`src/modules/*.stories.tsx`. **Full pages/screens are built in the apps** (`apps/creator`,
+`apps/learner`), not as mock pages here — `packages/ui` owns reusable components and modules only.
+Rationale, structure, and the boundary:
+`packages/docs/architecture/0001-storybook-for-design-system-workflow.md`.
+
 ## Lint
 
-On `@fundi/config/eslint/base` (not `.../eslint/next`, which needs a real `next` dependency this
-package intentionally omits). React-hooks lint rules are therefore not enforced here yet — revisit
-by adding an `@fundi/config/eslint/react-lib` variant with `eslint-plugin-react-hooks` if hook
-misuse becomes a risk.
+On `@fundi/config/eslint/base` (not `.../eslint/next` — that variant layers on Next-specific rules
+meant for the apps). `@fundi/ui` ships no Next.js **runtime** dependency; `next` is present only as
+a Storybook-only devDependency (the `@storybook/nextjs` framework needs it). React-hooks lint rules
+are therefore not enforced here yet — revisit by adding an `@fundi/config/eslint/react-lib` variant
+with `eslint-plugin-react-hooks` if hook misuse becomes a risk.
