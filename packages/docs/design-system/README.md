@@ -10,6 +10,9 @@ See also: [`../architecture/0001-storybook-for-design-system-workflow.md`](../ar
 for the tooling recommendation these tasks assume (Storybook for isolated component/module dev and
 review — full pages/screens are built in the apps, not mocked in Storybook).
 
+**Build status / what's left:** [`STATUS.md`](./STATUS.md) — the at-a-glance tracker for all local
+(non-ClickUp) design-system work: module chains, tooling, a11y, and responsiveness.
+
 ## Audit results (2026-07-12)
 
 | Area | Result |
