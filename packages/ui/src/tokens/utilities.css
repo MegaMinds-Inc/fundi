@@ -1,0 +1,11 @@
+/* Utility classes for what inline styles can't express (pseudo-elements). */
+
+/* Horizontal scroll container with the scrollbar hidden across engines. */
+.fundi-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge */
+}
+.fundi-scroll-x::-webkit-scrollbar {
+  display: none; /* Chrome / Safari */
+}

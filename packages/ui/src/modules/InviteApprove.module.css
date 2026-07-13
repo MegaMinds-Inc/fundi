@@ -1,0 +1,40 @@
+/* InviteApprove layout. Breakpoint value hardcoded from tokens/layout.css. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--font-body);
+}
+
+.inviteRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+/* On phones (below the 768px tablet tier) the field + button stack full-width
+   instead of cramming side by side. */
+@media (max-width: 767px) {
+  .inviteRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .field {
+    flex: none;
+  }
+}

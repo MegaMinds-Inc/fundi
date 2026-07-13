@@ -1,0 +1,7 @@
+/* Fundi animations. Keyframes can't live in inline styles, so shared ones are
+   declared here and referenced by name (e.g. Spinner's `fundi-spin`). */
+@keyframes fundi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

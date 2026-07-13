@@ -1,0 +1,42 @@
+# Publish the static Storybook (@fundi/ui component explorer) to the Dev
+# environment. Runs only after the CI workflow succeeds on `main`. Bound to the
+# GitHub `dev` Environment for the Render secrets. Mirrors "Deploy (Dev)": GitHub
+# is the source of truth and triggers the Render deploy via the Render API
+# (render.yaml sets autoDeploy:false, so Render's git watcher does not deploy).
+# Render runs the build itself (buildCommand in render.yaml) — no build here.
+name: Deploy Storybook (Dev)
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-storybook-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Only deploy when the triggering CI run passed.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_STORYBOOK_SERVICE_ID: ${{ secrets.RENDER_STORYBOOK_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          echo "Triggering Storybook deploy on Render service $RENDER_STORYBOOK_SERVICE_ID"
+          curl -fsS -X POST \
+            "https://api.render.com/v1/services/$RENDER_STORYBOOK_SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":"do_not_clear"}' > /dev/null
+          echo "Deploy triggered. Watch progress in the Render dashboard."

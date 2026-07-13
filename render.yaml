@@ -46,3 +46,25 @@ services:
       - key: CORS_ORIGINS
         sync: false
     # PORT is injected by Render automatically and read in src/main.ts — do not set it.
+
+  # Static component explorer for @fundi/ui (the design system) — see ADR-ENG-0001
+  # (packages/docs/architecture/0001-storybook-for-design-system-workflow.md).
+  # A Render static site (CDN-served, always free). Deploys are driven by the
+  # "Deploy Storybook (Dev)" workflow via the Render API — same GitHub-source-of-
+  # truth / autoDeploy:false pattern as fundi-api above (no git-push watcher).
+  - type: web
+    name: fundi-storybook
+    runtime: static
+    branch: main
+    autoDeploy: false
+    # Build from the repo root so the pnpm workspace resolves. @fundi/ui ships raw
+    # TSX and its turbo `build` is a no-op, so Storybook must be built explicitly.
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @fundi/ui build-storybook
+    staticPublishPath: packages/ui/storybook-static
+    # No runtime secrets — Storybook is a static bundle. NODE_VERSION only.
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
