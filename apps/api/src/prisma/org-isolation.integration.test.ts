@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { PrismaClient } from '@prisma/client';
-import { runWithOrgContext, MissingOrgContextError } from './org-context';
+import { runWithOrgContext, CrossTenantWriteError, MissingOrgContextError } from './org-context';
 import { scopeOperation } from './scope-operation';
 
 /**
@@ -102,5 +102,32 @@ describe('org isolation (integration — needs Postgres)', () => {
   it('throws instead of running unscoped with no org context', async (t) => {
     if (!dbAvailable) return t.skip('no reachable Postgres at DATABASE_URL');
     await assert.rejects(() => scoped.program.findMany(), MissingOrgContextError);
+  });
+
+  it("cannot persist a row into Org B from Org A's context via crafted data (D.1)", async (t) => {
+    if (!dbAvailable) return t.skip('no reachable Postgres at DATABASE_URL');
+
+    // Bound to Org A, a caller crafts data.organisationId = Org B, attempting a
+    // cross-tenant write. The extension must throw CrossTenantWriteError, never
+    // honour the caller's org.
+    await assert.rejects(
+      () =>
+        runWithOrgContext({ organisationId: ORG_A }, () =>
+          scoped.mentor.create({
+            data: {
+              organisationId: ORG_B,
+              name: 'Smuggled mentor',
+              phone: '+233000000099',
+            },
+          }),
+        ),
+      CrossTenantWriteError,
+    );
+
+    // Prove nothing leaked into Org B: the raw client sees no such mentor.
+    const smuggled = await raw.mentor.findFirst({
+      where: { organisationId: ORG_B, name: 'Smuggled mentor' },
+    });
+    assert.equal(smuggled, null, 'no row must have been persisted into Org B');
   });
 });

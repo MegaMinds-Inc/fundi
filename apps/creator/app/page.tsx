@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Badge, Button, Card, EmptyState, Input, Modal, Tabs, Tag } from '@fundi/ui';
 import { ProgramShape } from '@fundi/types';
 import { CreatorOnlyBuilderPanel } from './components/CreatorOnlyBuilderPanel';
+import { SignOutButton } from './components/SignOutButton';
 
 const FILTERS = ['self_paced', 'cohort', 'workshop'] as const;
 
@@ -25,27 +26,37 @@ export default function DashboardPage() {
         gap: 24,
       }}
     >
-      <header style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span
-          style={{
-            font: 'var(--text-eyebrow)',
-            letterSpacing: 'var(--tracking-eyebrow)',
-            textTransform: 'uppercase',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          Creator
-        </span>
-        <h1
-          style={{
-            font: 'var(--text-display-lg)',
-            letterSpacing: 'var(--tracking-tight)',
-            margin: 0,
-            color: 'var(--color-text-heading)',
-          }}
-        >
-          Your programs
-        </h1>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span
+            style={{
+              font: 'var(--text-eyebrow)',
+              letterSpacing: 'var(--tracking-eyebrow)',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-muted)',
+            }}
+          >
+            Creator
+          </span>
+          <h1
+            style={{
+              font: 'var(--text-display-lg)',
+              letterSpacing: 'var(--tracking-tight)',
+              margin: 0,
+              color: 'var(--color-text-heading)',
+            }}
+          >
+            Your programs
+          </h1>
+        </div>
+        <SignOutButton />
       </header>
 
       <Tabs

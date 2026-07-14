@@ -57,3 +57,21 @@ export class MissingOrgContextError extends Error {
     this.name = 'MissingOrgContextError';
   }
 }
+
+/**
+ * Thrown when a create supplies an `organisationId` that differs from the bound
+ * context. Failing loudly is deliberate: honouring the caller's value would let
+ * a request write a row into another tenant. The context is the single source
+ * of truth for the tenant — a mismatch is a bug or an attack, never a silent
+ * override (ADR-008). Passing the *matching* org is allowed (idempotent).
+ */
+export class CrossTenantWriteError extends Error {
+  constructor(suppliedOrganisationId: string, contextOrganisationId: string) {
+    super(
+      `Refusing to write a row with organisationId "${suppliedOrganisationId}" while the ` +
+        `bound organisation context is "${contextOrganisationId}". A tenant-scoped create ` +
+        `must never target a different organisation than its context (ADR-008).`,
+    );
+    this.name = 'CrossTenantWriteError';
+  }
+}

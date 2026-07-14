@@ -181,6 +181,10 @@ export function Input({
       </div>
       {(helperText || error) && (
         <span
+          // Announce validation errors to assistive tech (plan B.7); helper text
+          // stays silent so it isn't read out on every keystroke.
+          role={error ? 'alert' : undefined}
+          aria-live={error ? 'assertive' : undefined}
           style={{
             fontSize: 11.5,
             fontWeight: 600,

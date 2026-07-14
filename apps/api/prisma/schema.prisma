@@ -108,6 +108,14 @@ enum DripJobStatus {
   failed
 }
 
+// Which PWA a session/refresh-token belongs to. Creator and learner are
+// separate origins with separate cookie jars; the `app` claim + column keep a
+// creator token from minting a learner pair and vice-versa (US-004).
+enum AppClient {
+  creator
+  learner
+}
+
 // ---------------------------------------------------------------------------
 // Tenant root — NOT org-scoped (it IS the organisation)
 // ---------------------------------------------------------------------------
@@ -132,8 +140,87 @@ model Organisation {
   messages         Message[]
   messageTemplates MessageTemplate[]
   dripJobs         DripJob[]
+  memberships      Membership[]
 
   @@map("organisations")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & authz — NOT org-scoped (ADR-008 §A.2)
+//
+// These four tables live OUTSIDE the tenant boundary on purpose: they must be
+// readable BEFORE an org context exists (at login, there is no org yet). They
+// therefore must NOT be added to TENANT_SCOPED_MODELS and must NOT carry
+// organisation_id — scoping them would deadlock login. The completeness test in
+// org-scope.test.ts guards that invariant in both directions.
+// ---------------------------------------------------------------------------
+
+// Global identity — the auth principal, keyed by canonical E.164 phone. Unlike
+// Mentor/Learner (which are per-org rows), an Account is one human across all
+// orgs; Membership bridges it into each org.
+model Account {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  memberships Membership[]
+
+  @@map("accounts")
+}
+
+// Bridges an Account into an Organisation as a given role, optionally pinned to
+// the org's Mentor or Learner row. Readable pre-context so login can resolve
+// "which orgs, as what, as which row" before binding an org.
+model Membership {
+  accountId      String     @map("account_id")
+  organisationId String     @map("organisation_id")
+  role           MentorRole @default(mentor)
+  mentorId       String?    @unique @map("mentor_id")
+  learnerId      String?    @unique @map("learner_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  account      Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, organisationId])
+  @@index([accountId])
+  @@map("memberships")
+}
+
+// Pre-auth one-time-code challenge. The code is never stored in the clear:
+// `codeHash` is a scrypt hash over `salt`. `attempts` caps brute force;
+// `expiresAt`/`consumedAt` bound its lifetime and prevent replay.
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String    @map("code_hash")
+  salt       String
+  attempts   Int       @default(0)
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([phone, createdAt])
+  @@map("otp_challenges")
+}
+
+// Opaque refresh token, stored only as a SHA-256 hash. Rotation + reuse
+// detection: rows share a `familyId`; each use sets `replacedById` on the old
+// row and mints a new one, so replaying a rotated token reveals theft and the
+// whole family is revoked. `app` keeps creator/learner sessions separate.
+model RefreshToken {
+  id           String    @id @default(cuid())
+  accountId    String    @map("account_id")
+  familyId     String    @map("family_id")
+  tokenHash    String    @unique @map("token_hash")
+  app          AppClient
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([accountId, app])
+  @@map("refresh_tokens")
 }
 
 // ---------------------------------------------------------------------------

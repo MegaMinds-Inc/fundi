@@ -2,10 +2,16 @@
 
 import { useRef, useState } from 'react';
 import type { ChangeEvent, ClipboardEvent, CSSProperties, KeyboardEvent } from 'react';
+import { usePrefersReducedMotion } from '../lib/use-reduced-motion';
 
 export interface OtpInputProps {
   /** Number of digit boxes. Default 6. */
   length?: number;
+  /**
+   * Accessible label for the box group — screen readers read the boxes as one
+   * field, not N. Default 'One-time code'.
+   */
+  groupLabel?: string;
   /** Current value — a string of up to `length` digits. Controlled. */
   value: string;
   onChange: (value: string) => void;
@@ -44,6 +50,7 @@ const BOX_STYLE: CSSProperties = {
  */
 export function OtpInput({
   length = 6,
+  groupLabel = 'One-time code',
   value,
   onChange,
   onComplete,
@@ -54,6 +61,7 @@ export function OtpInput({
 }: OtpInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const [focused, setFocused] = useState<number | null>(null);
+  const reduced = usePrefersReducedMotion();
   const digits = value.split('').slice(0, length);
 
   function focusBox(i: number) {
@@ -119,7 +127,7 @@ export function OtpInput({
   }
 
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div role="group" aria-label={groupLabel} style={{ display: 'flex', gap: 8 }}>
       {Array.from({ length }).map((_, i) => (
         <input
           // Fixed-length set whose order never changes — a stable index key is correct here.
@@ -146,6 +154,8 @@ export function OtpInput({
           onBlur={() => setFocused((f) => (f === i ? null : f))}
           style={{
             ...BOX_STYLE,
+            // prefers-reduced-motion (plan B.7): drop the focus-ring transition.
+            transition: reduced ? 'none' : BOX_STYLE.transition,
             opacity: disabled ? 0.5 : 1,
             boxShadow: error
               ? 'inset 0 0 0 1.5px var(--color-status-danger-text)'

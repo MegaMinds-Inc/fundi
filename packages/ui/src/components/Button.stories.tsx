@@ -8,6 +8,7 @@ const meta = {
     variant: { control: 'inline-radio', options: ['primary', 'secondary', 'ghost', 'danger'] },
     size: { control: 'inline-radio', options: ['sm', 'md', 'lg'] },
     disabled: { control: 'boolean' },
+    loading: { control: 'boolean' },
     iconOnly: { control: 'boolean' },
     children: { control: 'text' },
   },
@@ -30,6 +31,26 @@ export const Ghost: Story = { args: { variant: 'ghost', children: 'Learn more' }
 export const Danger: Story = { args: { variant: 'danger', children: 'Remove learner' } };
 
 export const Disabled: Story = { args: { disabled: true } };
+
+/** In-flight async state (plan B.4): spinner replaces the label, clicks are blocked, width holds. */
+export const Loading: Story = { args: { loading: true, children: 'Sending code' } };
+
+/** Loading preserves each variant's width — the label is hidden, not removed. */
+export const LoadingVariants: Story = {
+  render: (args) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <Button {...args} loading variant="primary">
+        Send code
+      </Button>
+      <Button {...args} loading variant="secondary">
+        Verify
+      </Button>
+      <Button {...args} loading variant="danger">
+        Remove learner
+      </Button>
+    </div>
+  ),
+};
 
 export const WithIcon: Story = {
   args: {

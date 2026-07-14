@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Button } from '../components/Button';
-import { Input } from '../components/Input';
 import { OtpInput } from './OtpInput';
+import { PhoneInput } from './PhoneInput';
 
 export interface AuthFlowProps {
   /** What the user is signing in to, e.g. "your Creator dashboard". */
@@ -45,6 +45,9 @@ const heading: CSSProperties = {
   letterSpacing: '-0.02em',
   color: 'var(--color-text-heading)',
   margin: 0,
+  // Focus target on step transitions (plan B.7) — programmatic focus only, so
+  // suppress the ring the -1 tabindex would otherwise paint.
+  outline: 'none',
 };
 
 const sub: CSSProperties = {
@@ -83,6 +86,21 @@ export function AuthFlow({
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
 
+  // A11y focus management (plan B.7): move focus to the step heading on each
+  // transition so screen readers announce the new context. The OTP step is the
+  // exception — it hands focus to the first code box (OtpInput autoFocus).
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const prevStepRef = useRef<Step | null>(null);
+
+  // Hand off to the app exactly once, whether via the timer or the Continue
+  // button — never twice.
+  const handedOffRef = useRef(false);
+  const finish = useCallback(() => {
+    if (handedOffRef.current) return;
+    handedOffRef.current = true;
+    onSuccessRef.current();
+  }, []);
+
   // Resend cooldown: tick down one second at a time until zero.
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -90,12 +108,21 @@ export function AuthFlow({
     return () => clearTimeout(id);
   }, [cooldown]);
 
-  // On success, hand off to the app after a beat so the confirmation is seen.
+  useEffect(() => {
+    const prev = prevStepRef.current;
+    prevStepRef.current = step;
+    if (prev === null || prev === step) return; // don't steal focus on first mount
+    if (step !== 'otp') headingRef.current?.focus();
+  }, [step]);
+
+  // On success, hand off to the app after a beat so the confirmation is seen —
+  // but the visible "Continue" button is the a11y fallback (plan B.7), so a
+  // screen-reader / keyboard user is never at the mercy of the timer.
   useEffect(() => {
     if (step !== 'success') return;
-    const id = setTimeout(() => onSuccessRef.current(), SUCCESS_REDIRECT_MS);
+    const id = setTimeout(finish, SUCCESS_REDIRECT_MS);
     return () => clearTimeout(id);
-  }, [step]);
+  }, [step, finish]);
 
   async function requestCode(): Promise<void> {
     const d = digitsOf(phone);
@@ -120,6 +147,9 @@ export function AuthFlow({
   }
 
   async function verify(entered: string): Promise<void> {
+    // Double-submit lock (plan B.4): auto-submit-on-complete + a slow network is
+    // a double-fire trap — drop a second onComplete while a verify is in flight.
+    if (verifying) return;
     setVerifying(true);
     setOtpError(null);
     const check = onVerifyOtp ?? ((c: string) => Promise.resolve(c === '000000'));
@@ -152,10 +182,15 @@ export function AuthFlow({
             style={{ fontSize: 30, color: 'var(--color-accent-primary)' }}
           />
         </div>
-        <div>
-          <h2 style={heading}>You&apos;re in</h2>
+        <div role="status" aria-live="polite">
+          <h2 ref={headingRef} tabIndex={-1} style={heading}>
+            You&apos;re in
+          </h2>
           <p style={sub}>Taking you to {appName}…</p>
         </div>
+        <Button variant="ghost" onClick={finish}>
+          Continue
+        </Button>
       </div>
     );
   }
@@ -164,13 +199,16 @@ export function AuthFlow({
     return (
       <div style={column}>
         <div>
-          <h2 style={heading}>Enter your code</h2>
+          <h2 ref={headingRef} tabIndex={-1} style={heading}>
+            Enter your code
+          </h2>
           <p style={sub}>
             We sent a {otpLength}-digit code to {phone.trim()}.
           </p>
         </div>
         <OtpInput
           length={otpLength}
+          groupLabel={`Enter the ${otpLength}-digit code we sent`}
           value={code}
           error={!!otpError}
           autoFocus
@@ -182,7 +220,11 @@ export function AuthFlow({
           onComplete={verify}
         />
         {otpError && (
-          <p style={{ ...sub, marginTop: 0, color: 'var(--color-status-danger-text)' }}>
+          <p
+            role="alert"
+            aria-live="assertive"
+            style={{ ...sub, marginTop: 0, color: 'var(--color-status-danger-text)' }}
+          >
             {otpError}
           </p>
         )}
@@ -208,19 +250,16 @@ export function AuthFlow({
   return (
     <div style={column}>
       <div>
-        <h2 style={heading}>Sign in</h2>
+        <h2 ref={headingRef} tabIndex={-1} style={heading}>
+          Sign in
+        </h2>
         <p style={sub}>Enter your phone number to get a one-time code for {appName}.</p>
       </div>
-      <Input
-        label="Phone number"
-        type="tel"
-        inputMode="tel"
-        placeholder="+233 20 000 0000"
-        iconLeft={<i className="ph ph-phone" />}
+      <PhoneInput
         value={phone}
         error={phoneError ?? undefined}
-        onChange={(e) => {
-          setPhone(e.target.value);
+        onChange={(v) => {
+          setPhone(v);
           if (phoneError) setPhoneError(null);
         }}
       />

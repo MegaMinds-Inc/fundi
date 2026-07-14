@@ -1,12 +1,11 @@
-'use client';
+import { Card, EmptyState } from '@fundi/ui';
+import { SignOutButton } from './components/SignOutButton';
 
-import { useState } from 'react';
-import { Badge, Button, Card } from '@fundi/ui';
-import { LessonType } from '@fundi/types';
-
-export default function LessonViewPage() {
-  const [done, setDone] = useState(false);
-
+// Learner home (plan A.6 / B.6 / D6). Learners are enrolled by a creator, never
+// self-serve, so a freshly-authenticated learner legitimately has no programs
+// yet. Corrected framing: the learner PWA is a real surface for lessons and
+// progress — do NOT imply lessons arrive via WhatsApp.
+export default function LearnerHomePage() {
   return (
     <main
       style={{
@@ -19,57 +18,46 @@ export default function LessonViewPage() {
         gap: 18,
       }}
     >
-      <header style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span
-          style={{
-            font: 'var(--text-eyebrow)',
-            letterSpacing: 'var(--tracking-eyebrow)',
-            textTransform: 'uppercase',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          Module 2 · Lesson 3
-        </span>
-        <h1
-          style={{
-            font: 'var(--text-display-md)',
-            letterSpacing: 'var(--tracking-tight)',
-            margin: 0,
-            color: 'var(--color-text-heading)',
-          }}
-        >
-          Build the offer
-        </h1>
-      </header>
-
-      <Card
-        title="Watch: framing the promise"
-        meta={LessonType.VIDEO}
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Badge tone={done ? 'live' : 'warn'}>{done ? 'Completed' : 'Due tomorrow'}</Badge>
-            <Button size="sm" onClick={() => setDone((d) => !d)}>
-              {done ? 'Marked done' : 'Mark done'}
-            </Button>
-          </div>
-        }
-      >
-        <p style={{ font: 'var(--text-body-lg)', color: 'var(--color-text-body)', margin: 0 }}>
-          A short walkthrough of how to name the transformation your learners are paying for — then
-          reply <strong>DONE</strong> on WhatsApp when you finish.
-        </p>
-      </Card>
-
-      <p
+      <header
         style={{
-          font: 'var(--text-body-sm)',
-          color: 'var(--color-text-faint)',
-          textAlign: 'center',
-          margin: 0,
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 12,
         }}
       >
-        — Fundi
-      </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span
+            style={{
+              font: 'var(--text-eyebrow)',
+              letterSpacing: 'var(--tracking-eyebrow)',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-muted)',
+            }}
+          >
+            Learner
+          </span>
+          <h1
+            style={{
+              font: 'var(--text-display-md)',
+              letterSpacing: 'var(--tracking-tight)',
+              margin: 0,
+              color: 'var(--color-text-heading)',
+            }}
+          >
+            Your learning
+          </h1>
+        </div>
+        <SignOutButton />
+      </header>
+
+      <Card>
+        <EmptyState
+          icon="ph-check-circle"
+          title="You're all set"
+          body="When your mentor adds you to a program, your lessons and progress will show up here."
+        />
+      </Card>
     </main>
   );
 }

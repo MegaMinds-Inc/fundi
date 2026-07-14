@@ -28,6 +28,9 @@ export type { DrawerProps } from './components/Drawer';
 export { EmptyState } from './components/EmptyState';
 export type { EmptyStateProps } from './components/EmptyState';
 
+export { OfflineBanner } from './components/OfflineBanner';
+export type { OfflineBannerProps } from './components/OfflineBanner';
+
 // Shared primitives
 export { Spinner } from './components/Spinner';
 export type { SpinnerProps } from './components/Spinner';
@@ -55,6 +58,8 @@ export { initials } from './lib/initials';
 export { useBreakpoint, BREAKPOINTS } from './lib/use-breakpoint';
 export type { Breakpoint } from './lib/use-breakpoint';
 
+export { usePrefersReducedMotion } from './lib/use-reduced-motion';
+
 // Modules — reusable feature compositions (see ADR-ENG-0001)
 export { MessageComposer } from './modules/MessageComposer';
 export type { MessageComposerProps } from './modules/MessageComposer';
@@ -64,6 +69,9 @@ export type { OtpInputProps } from './modules/OtpInput';
 
 export { AuthFlow } from './modules/AuthFlow';
 export type { AuthFlowProps } from './modules/AuthFlow';
+
+export { PhoneInput, DEFAULT_PHONE_REGION, DEFAULT_DIAL_CODE } from './modules/PhoneInput';
+export type { PhoneInputProps } from './modules/PhoneInput';
 
 // Creator triage queue ("Needs You")
 export { SignalBadge } from './modules/SignalBadge';
