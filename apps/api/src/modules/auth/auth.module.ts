@@ -106,6 +106,9 @@ function createOtpDeliveryService(): OtpDeliveryService {
     { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
     { provide: APP_FILTER, useClass: OrgContextExceptionFilter },
   ],
-  exports: [TokenService, AuthService],
+  // PhoneService is exported so other domain modules (e.g. enrollment's
+  // "invite a learner by phone") can reuse the same E.164 normalisation
+  // instead of duplicating it — it has no auth-specific coupling.
+  exports: [TokenService, AuthService, PhoneService],
 })
 export class AuthModule {}
