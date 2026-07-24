@@ -1,17 +1,88 @@
 'use client';
 
-import { useState } from 'react';
-import { Badge, Button, Card, EmptyState, Input, Modal, Tabs, Tag } from '@fundi/ui';
-import { ProgramShape } from '@fundi/types';
+import { useCallback, useEffect, useState } from 'react';
+import { Badge, Card, CohortRoster, EmptyState, InviteApprove, Tabs, Tag } from '@fundi/ui';
+import type { ProgramSummary, RosterResponse } from '@fundi/types';
 import { CreatorOnlyBuilderPanel } from './components/CreatorOnlyBuilderPanel';
 import { SignOutButton } from './components/SignOutButton';
 
-const FILTERS = ['self_paced', 'cohort', 'workshop'] as const;
+const PROGRAM_VISIBILITY_TONE = { public: 'live', private: 'draft' } as const;
 
 export function DashboardClient() {
   const [tab, setTab] = useState('programs');
-  const [selected, setSelected] = useState<string>('cohort');
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const [programs, setPrograms] = useState<ProgramSummary[] | null>(null);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+  const [roster, setRoster] = useState<RosterResponse | null>(null);
+  const [activeCohortId, setActiveCohortId] = useState<string>('');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/programs', { cache: 'no-store' })
+      .then((res) => (res.ok ? (res.json() as Promise<ProgramSummary[]>) : []))
+      .then((data) => {
+        setPrograms(data);
+        setSelectedProgramId((current) => current ?? data[0]?.id ?? null);
+      })
+      .catch(() => setPrograms([]));
+  }, []);
+
+  const loadRoster = useCallback((programId: string) => {
+    fetch(`/api/enrollment/roster?programId=${encodeURIComponent(programId)}`, {
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<RosterResponse>) : null))
+      .then((data) => {
+        setRoster(data);
+        setActiveCohortId((current) => {
+          const cohorts = data?.cohorts ?? [];
+          if (cohorts.some((c) => c.id === current)) return current;
+          return cohorts[0]?.id ?? '';
+        });
+      })
+      .catch(() => setRoster(null));
+  }, []);
+
+  useEffect(() => {
+    if (selectedProgramId) loadRoster(selectedProgramId);
+  }, [selectedProgramId, loadRoster]);
+
+  function selectProgram(programId: string) {
+    setSelectedProgramId(programId);
+    setRoster(null);
+    setTab('cohorts');
+  }
+
+  async function handleInvite(phone: string) {
+    if (!selectedProgramId) return;
+    setInviteError(null);
+    const res = await fetch('/api/enrollment/invite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        programId: selectedProgramId,
+        cohortId: activeCohortId || null,
+        phone,
+      }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      setInviteError(
+        data?.error === 'already_enrolled' ? 'Already invited.' : 'Could not send invite.',
+      );
+      return;
+    }
+    loadRoster(selectedProgramId);
+  }
+
+  async function handleApprove(id: string) {
+    await fetch(`/api/enrollment/${id}/approve`, { method: 'POST' });
+    if (selectedProgramId) loadRoster(selectedProgramId);
+  }
+
+  async function handleDecline(id: string) {
+    await fetch(`/api/enrollment/${id}/decline`, { method: 'POST' });
+    if (selectedProgramId) loadRoster(selectedProgramId);
+  }
 
   return (
     <main
@@ -61,7 +132,7 @@ export function DashboardClient() {
 
       <Tabs
         variant="pill"
-        defaultValue="programs"
+        value={tab}
         onChange={setTab}
         tabs={[
           { label: 'Programs', value: 'programs' },
@@ -78,16 +149,20 @@ export function DashboardClient() {
             body="When a learner goes quiet or falls behind, they'll surface here. Go create."
           />
         </Card>
-      ) : (
-        <>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {FILTERS.map((f) => (
-              <Tag key={f} color="teal" selected={selected === f} onClick={() => setSelected(f)}>
-                {f.replace('_', ' ')}
-              </Tag>
-            ))}
-          </div>
-
+      ) : tab === 'programs' ? (
+        programs === null ? (
+          <Card>
+            <EmptyState icon="ph-circle-notch" title="Loading programs…" body="One moment." />
+          </Card>
+        ) : programs.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon="ph-stack"
+              title="No programs yet"
+              body="Programs are seeded for dev/test until the builder ships — run `pnpm --filter api db:seed`."
+            />
+          </Card>
+        ) : (
           <div
             style={{
               display: 'grid',
@@ -95,87 +170,118 @@ export function DashboardClient() {
               gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
             }}
           >
-            <Card
-              interactive
-              title="Build the offer"
-              meta="6 modules"
-              footer={
-                <div
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <Badge tone="live">Live</Badge>
-                  <Button variant="ghost" size="sm">
-                    Open
-                  </Button>
-                </div>
-              }
-            >
-              <p
-                style={{ font: 'var(--text-body-md)', color: 'var(--color-text-muted)', margin: 0 }}
+            {programs.map((program) => (
+              <Card
+                key={program.id}
+                interactive
+                title={program.title}
+                meta={program.shape.replace('_', ' ')}
+                onClick={() => selectProgram(program.id)}
+                footer={
+                  <Badge tone={PROGRAM_VISIBILITY_TONE[program.visibility]}>
+                    {program.visibility}
+                  </Badge>
+                }
               >
-                Shape:{' '}
-                <span style={{ font: 'var(--text-mono-sm)', color: 'var(--color-text-body)' }}>
-                  {ProgramShape.COHORT}
-                </span>
-              </p>
-            </Card>
-
-            <Card
-              interactive
-              title="Find your first 100 fans"
-              meta="4 modules"
-              footer={
-                <div
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                <p
+                  style={{
+                    font: 'var(--text-body-md)',
+                    color: 'var(--color-text-muted)',
+                    margin: 0,
+                  }}
                 >
-                  <Badge tone="draft">Draft</Badge>
-                  <Button variant="ghost" size="sm">
-                    Open
-                  </Button>
-                </div>
-              }
-            >
-              <p
-                style={{ font: 'var(--text-body-md)', color: 'var(--color-text-muted)', margin: 0 }}
-              >
-                Shape:{' '}
-                <span style={{ font: 'var(--text-mono-sm)', color: 'var(--color-text-body)' }}>
-                  {ProgramShape.SELF_PACED}
-                </span>
-              </p>
-            </Card>
+                  {program.visibility === 'private'
+                    ? 'Invited learners need approval to join.'
+                    : 'Anyone invited joins immediately.'}
+                </p>
+              </Card>
+            ))}
           </div>
-
-          <Card title="Invite a learner">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <Input
-                label="Phone number"
-                type="tel"
-                inputMode="tel"
-                placeholder="+233 …"
-                helperText="They'll get a WhatsApp invite to join this cohort."
-              />
-              <div style={{ display: 'flex', gap: 10 }}>
-                <Button onClick={() => setInviteOpen(true)}>Send invite</Button>
-                <Button variant="secondary">Save draft</Button>
-              </div>
+        )
+      ) : !selectedProgramId ? (
+        <Card>
+          <EmptyState
+            icon="ph-stack"
+            title="Pick a program first"
+            body="Choose a program from the Programs tab to invite learners and view its roster."
+          />
+        </Card>
+      ) : (
+        <>
+          {roster && roster.cohorts.length > 1 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {roster.cohorts.map((c) => (
+                <Tag
+                  key={c.id}
+                  color="teal"
+                  selected={activeCohortId === c.id}
+                  onClick={() => setActiveCohortId(c.id)}
+                >
+                  {c.name}
+                </Tag>
+              ))}
             </div>
+          )}
+
+          {roster?.program.visibility === 'private' && (
+            <Card title="Invite & approve">
+              <InviteApprove
+                pending={roster.pending}
+                onInvite={handleInvite}
+                onApprove={handleApprove}
+                onDecline={handleDecline}
+              />
+              {inviteError && (
+                <p
+                  style={{
+                    font: 'var(--text-body-sm)',
+                    color: 'var(--color-status-danger-text)',
+                    margin: '8px 0 0',
+                  }}
+                >
+                  {inviteError}
+                </p>
+              )}
+            </Card>
+          )}
+
+          {roster?.program.visibility === 'public' && (
+            <Card title="Invite a learner">
+              <InviteApprove
+                pending={[]}
+                onInvite={handleInvite}
+                onApprove={() => {}}
+                onDecline={() => {}}
+              />
+              {inviteError && (
+                <p
+                  style={{
+                    font: 'var(--text-body-sm)',
+                    color: 'var(--color-status-danger-text)',
+                    margin: '8px 0 0',
+                  }}
+                >
+                  {inviteError}
+                </p>
+              )}
+            </Card>
+          )}
+
+          <Card title="Roster">
+            {roster ? (
+              <CohortRoster
+                cohorts={roster.cohorts}
+                activeId={activeCohortId}
+                onSelect={setActiveCohortId}
+              />
+            ) : (
+              <EmptyState icon="ph-circle-notch" title="Loading roster…" body="One moment." />
+            )}
           </Card>
         </>
       )}
 
       <CreatorOnlyBuilderPanel />
-
-      <Modal
-        open={inviteOpen}
-        title="Invite sent"
-        onClose={() => setInviteOpen(false)}
-        footer={<Button onClick={() => setInviteOpen(false)}>Done</Button>}
-      >
-        <p style={{ font: 'var(--text-body-md)', color: 'var(--color-text-muted)', margin: 0 }}>
-          We&apos;ll message them on WhatsApp and add them to the cohort once they accept.
-        </p>
-      </Modal>
     </main>
   );
 }
