@@ -5,6 +5,14 @@
 
 # SPRINT 2 — Program Access & Enrollment
 
+**Status in this repo (2026-07-24):** Backend (seed fixtures, invite/approve/decline/roster API)
+and the creator dashboard wiring are done — see
+`packages/docs/features/0011-sprint-2-enrollment.md`. Not done: client-side phone-format validation
+on the invite form (server-side validation exists; the AC's "rejected client-side before submit"
+does not), and the low-enrollment/self-paced-layout questions the design kit itself leaves open —
+see `packages/docs/product-owner-flags/0001-sprint-2-open-questions.md` for the full list.
+ClickUp not yet updated — sync when asked, per the local-first workflow.
+
 **Release increment goal:** A Program/Cohort exists (via seeded fixtures, not the full builder UI — that's still blocked) and a creator can invite a learner by phone, see them through `pending_approval` → `active` for a private program, or straight to `active` for a public one, and view/manage a cohort roster.
 
 **Ships & is testable as:** seed a program → invite a learner → (private) approve them → see them on the roster with the correct state badge → (public) confirm auto-active path skips approval.
@@ -24,10 +32,10 @@
 **Story:** As an engineer, I want the Program/Module/Lesson schema live (per domain model §3) with a minimal create path (API or seed script — no builder UI required), so downstream domains have something real to enroll into and progress through.
 
 **Acceptance Criteria**
-- [ ] Prisma models for Program (shape + visibility enums), Module, Lesson (ordered, typed: text/video/attachment/live_online/in_person) exist and are org-scoped (ADR-008).
-- [ ] A seed script or minimal internal API can create a Program with modules/lessons for test/dev use — no creator-facing UI implied or expected here.
-- [ ] At least one seeded self-paced/public and one cohort/private program exist in the dev seed data, so both Enrollment paths (auto-active vs. approval-gated) are testable.
-- [ ] This story does **not** close out the "Program creation flow," "Module & Lesson builder," "Lesson type editor," or "Draft/publish states" design tasks — those remain blocked pending real design files.
+- [x] Prisma models for Program (shape + visibility enums), Module, Lesson (ordered, typed: text/video/attachment/live_online/in_person) exist and are org-scoped (ADR-008) — were already live from Sprint 0's original domain-model migration.
+- [x] A seed script or minimal internal API can create a Program with modules/lessons for test/dev use — no creator-facing UI implied or expected here. `apps/api/prisma/seed.ts`, `pnpm --filter api db:seed`.
+- [x] At least one seeded self-paced/public and one cohort/private program exist in the dev seed data, so both Enrollment paths (auto-active vs. approval-gated) are testable.
+- [x] This story does **not** close out the "Program creation flow," "Module & Lesson builder," "Lesson type editor," or "Draft/publish states" design tasks — those remain blocked pending real design files. (Confirmed still true — untouched this pass.)
 
 Points: 5
 
@@ -43,11 +51,11 @@ Points: 5
 **User story:** As a mentor, I want to invite a learner by phone number and, for private/approval-gated programs, approve or decline them before they're active, so I control who's in a paid or gated cohort while public programs stay frictionless.
 
 **Acceptance criteria:**
-*   Invite form takes a phone number only (phone-first identity per ADR-001), sends invite.
-*   **Private programs**: invited learner lands in `pending_approval`; mentor sees a pending list with Approve/Decline actions; approving moves them to `active`.
-*   **Public programs**: invite (or self-serve join, if in scope for this program type) skips straight to `active` — no approval step shown.
-*   Decline removes the pending entry (does not silently leave a dangling state).
-*   Invalid/malformed phone number is rejected client-side before submit.
+*   [x] Invite form takes a phone number only (phone-first identity per ADR-001), sends invite.
+*   [x] **Private programs**: invited learner lands in `pending_approval`; mentor sees a pending list with Approve/Decline actions; approving moves them to `active`.
+*   [x] **Public programs**: skips straight to `active` — no approval step shown. Self-serve (learner-initiated) join was deferred, not built — see the PO-flags doc; this is mentor-initiated invite only.
+*   [x] Decline removes the pending entry — hard-deletes the `Enrollment` row (PO-confirmed; no `declined` state exists in the schema).
+*   [ ] Invalid/malformed phone number is rejected client-side before submit — **not done**. Validation happens server-side only (`PhoneService.normalize`, 400 on invalid); `InviteApprove`'s client-side check is just "non-empty," not format validation.
 
 **Status:** backlog · **Priority:** urgent · **ClickUp:** [86capbvdy](https://app.clickup.com/t/86capbvdy)
 
@@ -61,10 +69,10 @@ Points: 5
 **User story:** As a mentor, I want to see my cohorts as tabs and view/manage each one's roster, so I can work with one scheduled group at a time (or a single rolling self-paced track) without the rosters blending together.
 
 **Acceptance criteria:**
-*   Cohort tabs show name + learner count (monospace count per brand type rules); active tab is visually distinct.
-*   Self-paced programs show a single rolling roster (no cohort-tab switching needed) — confirm with design whether this is a hidden single-tab or a genuinely different layout; not fully specified in the current kit.
-*   Roster list shows each learner with their `EnrollmentBadge` (state) — see that story for the badge itself.
-*   Switching cohorts doesn't reload the whole screen — tab state only.
+*   [x] Cohort tabs show name + learner count; active tab is visually distinct.
+*   [ ] Self-paced programs show a single rolling roster — implemented as a single synthetic-cohort tab (via the same `CohortRoster` component) rather than a genuinely tab-less layout; the "hidden single-tab vs. different layout" question is still unresolved — see the PO-flags doc.
+*   [x] Roster list shows each learner with their `EnrollmentBadge` (state).
+*   [x] Switching cohorts doesn't reload the whole screen — client-side state only.
 
 **Status:** backlog · **Priority:** urgent · **ClickUp:** [86capbve6](https://app.clickup.com/t/86capbve6)
 
@@ -78,9 +86,9 @@ Points: 5
 **User story:** As a mentor scanning a roster or dashboard, I want each learner's enrollment state shown as a consistent badge, so I can tell at a glance who's pending, active, done, or dropped.
 
 **Acceptance criteria:**
-*   Four states map to: `pending_approval` → warn/hourglass, `active` → live/check, `completed` → draft-tone/flag, `dropped` → neutral/x — matching the design system's Badge tone set exactly.
-*   Badge supports a `compact` mode (icon-only, no label) for dense layouts (e.g. desktop table view of the triage/roster).
-*   Reused everywhere an enrollment appears (roster, program dashboard) — not reimplemented per screen.
+*   [x] Four states map to: `pending_approval` → warn/hourglass, `active` → live/check, `completed` → draft-tone/flag, `dropped` → neutral/x.
+*   [x] Badge supports a `compact` mode (icon-only, no label) for dense layouts.
+*   [x] Reused everywhere an enrollment appears (roster, program dashboard) — `EnrollmentBadge` was already built pre-existing this sprint's backend/frontend-wiring work; confirmed still wired correctly into `RosterRow`.
 
 **Status:** backlog · **Priority:** high · **ClickUp:** [86capbven](https://app.clickup.com/t/86capbven)
 
@@ -94,8 +102,8 @@ Points: 5
 **User story:** As a mentor with a brand-new or barely-filled cohort, I want the roster to look intentional rather than broken when there are 0-few learners, so the app feels finished even on day one.
 
 **Acceptance criteria:**
-*   0 learners: `EmptyState` with a clear call-to-action pointing at "Invite a learner" (this story's empty state should link/scroll to the Invite & Approve flow).
-*   1-few learners (low-enrollment, not zero): roster renders normally — confirm with design the exact threshold where "low" styling (if any beyond just fewer rows) kicks in, since the design file doesn't define a distinct in-between state beyond the zero case.
+*   [x] 0 learners: `EmptyState` renders (both `InviteApprove`'s pending-empty-state and `CohortRoster`'s roster-empty-state). Not wired as a scroll/link to the Invite flow specifically — both sections already sit on the same screen, so a separate jump affordance wasn't added.
+*   [ ] 1-few learners (low-enrollment, not zero): roster renders normally, but the "low-enrollment" distinct styling itself is **not built** — the threshold is still undefined in the design kit. Still open, see the PO-flags doc.
 
 **Status:** backlog · **Priority:** normal · **ClickUp:** [86capbvey](https://app.clickup.com/t/86capbvey)
 
