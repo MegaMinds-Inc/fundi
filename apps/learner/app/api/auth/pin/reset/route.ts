@@ -18,9 +18,7 @@ import {
 // is already spent — request a new one); a 401 pin_rejected (bad device / wrong
 // or expired OTP) is uniform. No enumeration.
 export async function POST(req: Request): Promise<NextResponse> {
-  const body = (await req.json().catch(() => null)) as
-    | { otpCode?: unknown; pin?: unknown }
-    | null;
+  const body = (await req.json().catch(() => null)) as { otpCode?: unknown; pin?: unknown } | null;
   if (
     typeof body?.otpCode !== 'string' ||
     body.otpCode.length === 0 ||

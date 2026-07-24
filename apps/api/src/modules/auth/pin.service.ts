@@ -1,9 +1,4 @@
-import {
-  createHmac,
-  randomBytes,
-  scrypt as scryptCb,
-  timingSafeEqual,
-} from 'node:crypto';
+import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { TrustedDevice } from '@prisma/client';
@@ -37,9 +32,7 @@ const DECOY_PIN = '000000';
  * on this for the attempt counter / lockout routing, but the HTTP layer MUST
  * collapse every non-`ok` case to a single uniform error (no existence oracle,
  * §7.5) — the `reason` is internal only. */
-export type PinVerifyResult =
-  | { ok: true }
-  | { ok: false; reason: 'invalid' | 'locked' };
+export type PinVerifyResult = { ok: true } | { ok: false; reason: 'invalid' | 'locked' };
 
 /**
  * Owns the PIN step-up credential (feature 0010 §7.1/7.3/7.5). The PIN lives on

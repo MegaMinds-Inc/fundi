@@ -333,9 +333,8 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
     if (!dbAvailable) return t.skip('no DB');
     const accountId = await seedAccount('10007');
     const first = await tokens.createRefreshToken({ accountId, app: AppClient.creator });
-    const birthAnchor = (
-      await raw.refreshToken.findFirst({ where: { familyId: first.familyId } })
-    )?.familyExpiresAt;
+    const birthAnchor = (await raw.refreshToken.findFirst({ where: { familyId: first.familyId } }))
+      ?.familyExpiresAt;
     assert.ok(birthAnchor, 'a new family must anchor familyExpiresAt');
 
     // Rotate several times; each fresh row must keep the SAME anchor. If the
@@ -374,7 +373,10 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
     const theftDevice = await raw.trustedDevice.create({
       data: { accountId: theftAccount, app: AppClient.creator, tokenHash: `td_${theftAccount}` },
     });
-    const issued = await tokens.createRefreshToken({ accountId: theftAccount, app: AppClient.creator });
+    const issued = await tokens.createRefreshToken({
+      accountId: theftAccount,
+      app: AppClient.creator,
+    });
     await tokens.rotateRefreshToken(issued.token); // `issued` now revoked
     // Age past the benign-race grace window → genuine reuse-after-detection (F4).
     await raw.refreshToken.updateMany({
@@ -463,7 +465,10 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
         (e.getResponse() as { code?: string }).code === 'invalid_grant',
     );
     const rows = await raw.refreshToken.findMany({ where: { familyId: first.familyId } });
-    assert.ok(rows.every((r) => r.revokedAt != null), 'genuine reuse must burn the whole family');
+    assert.ok(
+      rows.every((r) => r.revokedAt != null),
+      'genuine reuse must burn the whole family',
+    );
     const revoked = await raw.trustedDevice.findUnique({ where: { id: device.id } });
     assert.ok(revoked?.revokedAt, 'genuine reuse must revoke device trust (F4)');
   });

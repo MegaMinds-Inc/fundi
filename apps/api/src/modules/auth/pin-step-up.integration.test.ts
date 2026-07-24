@@ -328,9 +328,7 @@ describe('device/forget fully un-trusts; logout keeps device trust (0010 §13.3)
     assert.ok(await devices.verifyCookie(result.deviceSecret!, AppClient.creator));
 
     // Resolve the family the presented refresh token belongs to, up front.
-    const tokenHash = createHash('sha256')
-      .update(result.tokens!.refreshToken)
-      .digest('hex');
+    const tokenHash = createHash('sha256').update(result.tokens!.refreshToken).digest('hex');
     const beforeRow = await raw.refreshToken.findUnique({
       where: { tokenHash },
       select: { familyId: true },

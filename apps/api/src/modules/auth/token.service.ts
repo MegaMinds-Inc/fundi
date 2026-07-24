@@ -285,13 +285,9 @@ export class TokenService {
 
   /** The immutable absolute-cap anchor, tolerant of backfilled (null) rows:
    * a null `familyExpiresAt` is treated as `createdAt + REFRESH_ABSOLUTE_TTL`. */
-  private resolveFamilyExpiresAt(row: {
-    familyExpiresAt: Date | null;
-    createdAt: Date;
-  }): Date {
+  private resolveFamilyExpiresAt(row: { familyExpiresAt: Date | null; createdAt: Date }): Date {
     return (
-      row.familyExpiresAt ??
-      new Date(row.createdAt.getTime() + REFRESH_ABSOLUTE_TTL_SECONDS * 1000)
+      row.familyExpiresAt ?? new Date(row.createdAt.getTime() + REFRESH_ABSOLUTE_TTL_SECONDS * 1000)
     );
   }
 
