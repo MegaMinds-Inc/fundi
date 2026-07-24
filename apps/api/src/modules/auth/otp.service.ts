@@ -20,6 +20,15 @@ const scrypt = promisify(scryptCb) as (
 ) => Promise<Buffer>;
 
 /**
+ * Fixed dummy inputs for the decoy hash on the no-challenge path (feature 0010
+ * §7.5). The values are irrelevant — they only have to be stable so the KDF
+ * work is real and the "no unconsumed challenge" branch costs the same time as
+ * a genuine wrong-code compare, closing the timing oracle.
+ */
+const OTP_DECOY_SALT = 'fundi-otp-decoy-salt-0010';
+const OTP_DECOY_CODE = '000000';
+
+/**
  * Owns the one-time-code lifecycle on `OtpChallenge`: issuance (with per-phone
  * cooldown + rolling cap), and verification (with an attempt cap, expiry, and
  * single-use consumption for replay protection). Codes are never stored in the
@@ -105,7 +114,10 @@ export class OtpService {
 
     if (!challenge) {
       // No unconsumed challenge — either never requested, or already used
-      // (replay). Indistinguishable on purpose.
+      // (replay). Indistinguishable on purpose. Run a constant-time decoy hash
+      // first so this path costs the same as a real compare (no timing oracle
+      // that leaks whether a challenge exists — feature 0010 §7.5).
+      await this.decoyHash();
       throw this.reject('otp_invalid', 'That code is not valid. Request a new one.');
     }
 
@@ -150,6 +162,14 @@ export class OtpService {
   private async hash(code: string, salt: string): Promise<string> {
     const derived = await scrypt(code, salt, OTP_SCRYPT_KEYLEN);
     return derived.toString('hex');
+  }
+
+  /** Burn a real scrypt + constant-time compare with no observable result, so
+   * the no-challenge path is latency-indistinguishable from a real verify. */
+  private async decoyHash(): Promise<void> {
+    const actual = Buffer.from(await this.hash(OTP_DECOY_CODE, OTP_DECOY_SALT), 'hex');
+    const dummy = Buffer.alloc(actual.length);
+    timingSafeEqual(actual, dummy);
   }
 
   private reject(code: string, message: string): HttpException {

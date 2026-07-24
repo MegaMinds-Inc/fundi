@@ -2,9 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 
 /**
  * The seam between the auth module and however OTP codes physically reach a
- * user. Sprint 1 ships a console/stub driver; the real SMS driver (WhatsApp
- * fallback later, ADR-001) slots in behind this same interface as separate
- * infra work. Declared as an abstract class so it doubles as the Nest DI token.
+ * user. Sprint 1 shipped a console/stub driver; the real SMS driver
+ * ({@link SmsOtpDeliveryService}, feature 0009) slots in behind this same
+ * interface, selected by `OTP_DELIVERY_DRIVER` in `auth.module.ts`. A WhatsApp
+ * fallback (ADR-001) would be another driver behind this same seam. Declared as
+ * an abstract class so it doubles as the Nest DI token.
  */
 export abstract class OtpDeliveryService {
   /** Deliver `code` to `phone`. Implementations must not throw on transient

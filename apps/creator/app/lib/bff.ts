@@ -1,79 +1,54 @@
-// Backend-for-Frontend (BFF) server-side helpers (plan A.4/A.7).
+// Backend-for-Frontend (BFF) server-side helpers (plan A.4/A.7 + feature 0010 §6).
 //
-// This module runs ONLY server-side (route handlers / server components). It
-// holds the API base URL and the auth tokens — the browser never sees either
-// (Fundi env policy: no NEXT_PUBLIC_, tokens live in httpOnly cookies). It is
-// the single home for cookie shaping + the single-flight silent-refresh
-// wrapper so both never drift.
+// This module runs ONLY in a Node server context (route handlers / server
+// components) — it uses `next/headers`, which the Edge middleware cannot. The
+// runtime-agnostic transport (cookie names, API URL, refresh single-flight)
+// lives in `auth-core.ts` and is shared with the middleware; this file adds the
+// httpOnly cookie IO on top. It is the single home for cookie shaping so the
+// browser never sees the API URL or a token/secret (Fundi env policy: no
+// NEXT_PUBLIC_).
 
 import { cookies } from 'next/headers';
-import { AppClient } from '@fundi/types';
+import type { MeResult } from '@fundi/types';
+import {
+  APP,
+  AT_COOKIE,
+  RT_COOKIE,
+  DT_COOKIE,
+  REFRESH_MAX_AGE_S,
+  DEVICE_MAX_AGE_S,
+  fullHardening,
+  apiUrl,
+  refreshOnce,
+  pairFromFlat,
+  type ApiTokenPair,
+} from './auth-core';
 
-/**
- * This app's client identity (creator PWA). Carried as the `app` field on every
- * auth call so refresh rotation + logout stay scoped to this origin — creator
- * and learner are separate cookie jars (plan A.4 per-app scoping).
- */
-export const APP: AppClient = AppClient.CREATOR;
-
-// Cookie hardening is an explicit, server-side flag (Fundi env policy: no
-// NEXT_PUBLIC_). FULL hardening = the `__Host-` prefix + Secure, which the
-// browser only honours with Secure + Path=/ + no Domain. Driven by
-// `COOKIE_HARDENING` so staging/prod can force full hardening independent of
-// NODE_ENV; defaults ON in production. Set `COOKIE_HARDENING=dev` to opt out on
-// plain-http localhost (where a Secure cookie would never set). Confirmed
-// direction: full hardening is the default everywhere except an explicit dev opt-out.
-const cookieHardening = process.env.COOKIE_HARDENING; // 'full' | 'dev' | undefined
-const fullHardening =
-  cookieHardening === 'full' ||
-  (cookieHardening !== 'dev' && process.env.NODE_ENV === 'production');
-
-export const AT_COOKIE = fullHardening ? '__Host-fundi_at' : 'fundi_at';
-export const RT_COOKIE = fullHardening ? '__Host-fundi_rt' : 'fundi_rt';
-
-// Refresh cookie lifetime mirrors the refresh-token TTL (30d default).
-const REFRESH_MAX_AGE_S = 60 * 60 * 24 * 30;
-
-function apiBaseUrl(): string {
-  const base = process.env.API_BASE_URL;
-  if (!base) {
-    throw new Error('API_BASE_URL is not set (server-side env — see .env.example).');
-  }
-  return base.replace(/\/+$/, '');
-}
-
-// The API serves all routes under this versioned prefix (see apps/api main.ts
-// setGlobalPrefix). API_BASE_URL is the bare host; the version lives in code so
-// it stays consistent across every environment. Bump both together for v2.
-const API_PREFIX = '/api/v1';
-
-function apiUrl(path: string): string {
-  return `${apiBaseUrl()}${API_PREFIX}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-/**
- * Server-to-server token pair. The refresh token rides this internal response
- * but is NEVER forwarded to the browser body — the BFF stores it in the
- * httpOnly refresh cookie (plan A.4). Field name is a contract with the API
- * (Agent D); flagged needs-confirm.
- */
-interface ApiTokenPair {
-  accessToken: string;
-  refreshToken: string;
-  /** Access-token lifetime in seconds. */
-  expiresIn: number;
-}
+export {
+  APP,
+  AT_COOKIE,
+  RT_COOKIE,
+  DT_COOKIE,
+  apiUrl,
+  refreshOnce,
+  pairFromFlat,
+  type ApiTokenPair,
+};
 
 interface CookieOptions {
   httpOnly: true;
   secure: boolean;
-  sameSite: 'lax';
+  // `SameSite=Strict` on every auth cookie (feature 0010 §7.6). The apps are a
+  // single origin each, so same-site top-level navigation (the middleware
+  // redirect, a PWA launch) still carries the cookie; a forged cross-site POST
+  // does not — the CSRF backstop paired with the API's `Sec-Fetch-Site` reject.
+  sameSite: 'strict';
   path: '/';
   maxAge: number;
 }
 
 function cookieOptions(maxAgeS: number): CookieOptions {
-  return { httpOnly: true, secure: fullHardening, sameSite: 'lax', path: '/', maxAge: maxAgeS };
+  return { httpOnly: true, secure: fullHardening, sameSite: 'strict', path: '/', maxAge: maxAgeS };
 }
 
 export async function setAuthCookies(pair: ApiTokenPair): Promise<void> {
@@ -82,9 +57,35 @@ export async function setAuthCookies(pair: ApiTokenPair): Promise<void> {
   jar.set(RT_COOKIE, pair.refreshToken, cookieOptions(REFRESH_MAX_AGE_S));
 }
 
+/** Write the browser-facing trusted-device cookie from the secret the API
+ * returned in the JSON body (feature 0010 §6). Rotated on every step-up. */
+export async function setDeviceCookie(secret: string): Promise<void> {
+  const jar = await cookies();
+  jar.set(DT_COOKIE, secret, cookieOptions(DEVICE_MAX_AGE_S));
+}
+
+export async function clearDeviceCookie(): Promise<void> {
+  const jar = await cookies();
+  jar.set(DT_COOKIE, '', cookieOptions(0));
+}
+
+/** Full clear — session cookies AND device trust (AT+RT+DT). Used when the whole
+ * enrollment must drop: `device/forget` ("Not you?") and a hard session-death
+ * re-auth. An explicit logout does NOT use this (see {@link clearSessionCookies}). */
 export async function clearAuthCookies(): Promise<void> {
   const jar = await cookies();
   // maxAge 0 expires immediately; same attributes so the browser matches + drops.
+  jar.set(AT_COOKIE, '', cookieOptions(0));
+  jar.set(RT_COOKIE, '', cookieOptions(0));
+  jar.set(DT_COOKIE, '', cookieOptions(0));
+}
+
+/** Clear ONLY the session cookies (access + refresh), KEEPING device trust
+ * (feature 0010 §13.3 / CHANGE 2). Used by logout: the session ends but the
+ * device stays enrolled, so the next entry is a free PIN step-up — not a paid
+ * SMS-OTP. Full un-trust is the explicit "Not you?"/device-forget action. */
+export async function clearSessionCookies(): Promise<void> {
+  const jar = await cookies();
   jar.set(AT_COOKIE, '', cookieOptions(0));
   jar.set(RT_COOKIE, '', cookieOptions(0));
 }
@@ -95,6 +96,45 @@ async function getAccessToken(): Promise<string | undefined> {
 
 async function getRefreshToken(): Promise<string | undefined> {
   return (await cookies()).get(RT_COOKIE)?.value;
+}
+
+async function getDeviceSecret(): Promise<string | undefined> {
+  return (await cookies()).get(DT_COOKIE)?.value;
+}
+
+/** Read the refresh token for the server-side `/login` resolver. */
+export async function getRefreshTokenValue(): Promise<string | undefined> {
+  return getRefreshToken();
+}
+
+/** Whether a trusted-device cookie is present (drives the resolver's
+ * pin-entry-vs-phone decision, feature 0010 §12.1). */
+export async function hasDeviceCookie(): Promise<boolean> {
+  return !!(await getDeviceSecret());
+}
+
+/**
+ * Server-side `GET /auth/me` for the mandatory PIN-setup gate (feature 0010
+ * CHANGE 1). Reads the access cookie and calls the API with a bearer — it makes
+ * NO cookie writes, so it is safe to call during a Server Component render (which
+ * cannot set cookies). The middleware has already proactively refreshed a lapsed
+ * access token before the page renders, so a present access cookie is a live one;
+ * a missing/invalid one returns `null` and the gate redirects to `/login`.
+ */
+export async function getMe(): Promise<MeResult | null> {
+  const access = await getAccessToken();
+  if (!access) return null;
+  let res: Response;
+  try {
+    res = await fetch(apiUrl('/auth/me'), {
+      headers: { authorization: `Bearer ${access}` },
+      cache: 'no-store',
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MeResult | null;
 }
 
 /** Narrow init — the BFF only ever sends JSON bodies with a method. */
@@ -121,49 +161,33 @@ export async function postPublic(path: string, body: unknown): Promise<Response 
   }
 }
 
-// ── Single-flight silent refresh (plan A.4 / C.2.4) ──────────────────────────
-// Concurrent 401s (two tabs, parallel requests) in this server process share
-// ONE /auth/refresh call, keyed by the current refresh token. This keeps a
-// benign refresh race from looking like token reuse (which would revoke the
-// whole family).
-
-type RefreshOutcome =
-  | { status: 'refreshed'; pair: ApiTokenPair }
-  | { status: 'invalid_grant' } // genuine expiry / reuse — re-auth
-  | { status: 'unavailable' }; // network / 5xx — keep the session, retryable
-
-const refreshInFlight = new Map<string, Promise<RefreshOutcome>>();
-
-async function callRefresh(refreshToken: string): Promise<RefreshOutcome> {
-  let res: Response;
+/**
+ * Server-to-server POST that forwards the browser's httpOnly device (and,
+ * optionally, refresh) cookie to the API as a `Cookie` header (feature 0010 §6:
+ * `pin/verify`, `pin/forgot`, `device/forget` read the device cookie
+ * server-side). No browser `Sec-Fetch-Site` is forwarded (§7.6), so the API's
+ * cross-site reject never fires on these calls. The cookie NAMES match what the
+ * API's cookie-parser accepts (`fundi_dt`/`__Host-fundi_dt`, `fundi_rt`/…).
+ */
+export async function postWithDeviceCookies(path: string, body: unknown): Promise<Response | null> {
+  const device = await getDeviceSecret();
+  const refresh = await getRefreshToken();
+  const parts: string[] = [];
+  if (refresh) parts.push(`${RT_COOKIE}=${refresh}`);
+  if (device) parts.push(`${DT_COOKIE}=${device}`);
   try {
-    res = await fetch(apiUrl('/auth/refresh'), {
+    return await fetch(apiUrl(path), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ refreshToken, app: APP }),
+      headers: {
+        'content-type': 'application/json',
+        ...(parts.length ? { cookie: parts.join('; ') } : {}),
+      },
+      body: JSON.stringify(body),
       cache: 'no-store',
     });
   } catch {
-    return { status: 'unavailable' };
+    return null;
   }
-  if (res.ok) {
-    const pair = (await res.json().catch(() => null)) as ApiTokenPair | null;
-    return pair ? { status: 'refreshed', pair } : { status: 'unavailable' };
-  }
-  // 401/403 from refresh = the refresh token itself is rejected → re-auth.
-  if (res.status === 401 || res.status === 403) return { status: 'invalid_grant' };
-  // 5xx / anything else → transient; do not eject the user.
-  return { status: 'unavailable' };
-}
-
-function refreshOnce(refreshToken: string): Promise<RefreshOutcome> {
-  const existing = refreshInFlight.get(refreshToken);
-  if (existing) return existing;
-  // Set the map entry synchronously (no await between get and set) so a
-  // concurrent caller always observes the in-flight promise.
-  const p = callRefresh(refreshToken).finally(() => refreshInFlight.delete(refreshToken));
-  refreshInFlight.set(refreshToken, p);
-  return p;
 }
 
 /** Outcome of an authenticated BFF→API call. */
@@ -195,8 +219,8 @@ async function classify(res: Response): Promise<AuthFetchResult> {
 
 /**
  * Authenticated BFF→API call with single-flight silent refresh: on a 401, call
- * `/auth/refresh` once, rewrite cookies, retry once. `invalid_grant` clears the
- * session (re-auth); network/5xx keeps it (retryable). Never ejects a
+ * `/auth/refresh` once, rewrite cookies, retry once. A refresh rejection clears
+ * the session (re-auth); network/5xx keeps it (retryable). Never ejects a
  * logged-in user on a flaky connection.
  */
 export async function authFetch(path: string, init?: ApiInit): Promise<AuthFetchResult> {
@@ -218,7 +242,7 @@ export async function authFetch(path: string, init?: ApiInit): Promise<AuthFetch
   }
 
   const outcome = await refreshOnce(rt);
-  if (outcome.status === 'invalid_grant') {
+  if (outcome.status === 'rejected') {
     await clearAuthCookies();
     return { kind: 'reauth' };
   }
@@ -233,7 +257,65 @@ export async function authFetch(path: string, init?: ApiInit): Promise<AuthFetch
   return classify(res);
 }
 
-/** Extract a token pair from an API response body ({ tokens: {...} }). */
+/**
+ * Refresh-aware authenticated POST that returns the RAW status + body without
+ * treating a business 4xx as a re-auth (unlike {@link authFetch}, which clears
+ * the session on any 403). Needed by `pin/set`, whose 403 `pin_change_requires_
+ * proof` / 422 `weak_pin` are form-level outcomes, NOT session death. Only a
+ * refresh REJECTION clears cookies.
+ */
+export type AuthPostResult =
+  { kind: 'response'; status: number; data: unknown } | { kind: 'reauth' } | { kind: 'retryable' };
+
+export async function authPost(path: string, body: unknown): Promise<AuthPostResult> {
+  let access = await getAccessToken();
+  if (!access) {
+    // No access token — try to mint one from the refresh cookie before failing.
+    const rt = await getRefreshToken();
+    if (!rt) return { kind: 'reauth' };
+    const outcome = await refreshOnce(rt);
+    if (outcome.status === 'rejected') {
+      await clearAuthCookies();
+      return { kind: 'reauth' };
+    }
+    if (outcome.status === 'unavailable') return { kind: 'retryable' };
+    await setAuthCookies(outcome.pair);
+    access = outcome.pair.accessToken;
+  }
+
+  const init: ApiInit = { method: 'POST', body: JSON.stringify(body) };
+  let res: Response;
+  try {
+    res = await bearerFetch(path, access, init);
+  } catch {
+    return { kind: 'retryable' };
+  }
+  if (res.status === 401) {
+    const rt = await getRefreshToken();
+    if (!rt) {
+      await clearAuthCookies();
+      return { kind: 'reauth' };
+    }
+    const outcome = await refreshOnce(rt);
+    if (outcome.status === 'rejected') {
+      await clearAuthCookies();
+      return { kind: 'reauth' };
+    }
+    if (outcome.status === 'unavailable') return { kind: 'retryable' };
+    await setAuthCookies(outcome.pair);
+    try {
+      res = await bearerFetch(path, outcome.pair.accessToken, init);
+    } catch {
+      return { kind: 'retryable' };
+    }
+  }
+  if (res.status >= 500) return { kind: 'retryable' };
+  const data = await res.json().catch(() => null);
+  return { kind: 'response', status: res.status, data };
+}
+
+/** Extract a token pair from a NESTED API response body (`{ tokens: {...} }` —
+ * otp/verify, onboarding). Flat bodies (refresh, pin/verify) use `pairFromFlat`. */
 export function tokensFrom(data: unknown): ApiTokenPair | null {
   const tokens = (data as { tokens?: Partial<ApiTokenPair> } | null)?.tokens;
   if (tokens?.accessToken && tokens.refreshToken && typeof tokens.expiresIn === 'number') {

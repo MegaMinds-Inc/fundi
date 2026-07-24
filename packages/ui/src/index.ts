@@ -67,6 +67,9 @@ export type { MessageComposerProps } from './modules/MessageComposer';
 export { OtpInput } from './modules/OtpInput';
 export type { OtpInputProps } from './modules/OtpInput';
 
+export { PinInput } from './modules/PinInput';
+export type { PinInputProps } from './modules/PinInput';
+
 export { AuthFlow } from './modules/AuthFlow';
 export type { AuthFlowProps } from './modules/AuthFlow';
 

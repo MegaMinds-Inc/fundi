@@ -18,6 +18,9 @@ import {
   OTP_MAX_ATTEMPTS,
   OTP_RESEND_COOLDOWN_MS,
   OTP_TTL_MS,
+  REFRESH_ABSOLUTE_TTL_SECONDS,
+  REFRESH_IDLE_TIMEOUT_SECONDS,
+  REFRESH_REUSE_GRACE_MS,
 } from './auth.constants';
 
 /**
@@ -256,6 +259,15 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
     const first = await tokens.createRefreshToken({ accountId, app: AppClient.creator });
     const rotated = await tokens.rotateRefreshToken(first.token); // first is now revoked
 
+    // Age the revocation PAST the benign-race grace window so the replay is
+    // treated as genuine reuse-after-detection (H1: a replay within the grace
+    // window is tolerated as a concurrent-refresh race, not theft). The revoked
+    // parent row is the one carrying a replacedById.
+    await raw.refreshToken.updateMany({
+      where: { familyId: first.familyId, replacedById: { not: null } },
+      data: { revokedAt: new Date(Date.now() - (REFRESH_REUSE_GRACE_MS + 60_000)) },
+    });
+
     // Replay the already-rotated token — this is theft.
     await assert.rejects(
       () => tokens.rotateRefreshToken(first.token),
@@ -273,22 +285,211 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
     await assert.rejects(() => tokens.rotateRefreshToken(rotated.token), HttpException);
   });
 
-  it('rejects an expired refresh token without rotating', async (t) => {
+  it('idle-lapsed token → reauth_required (PIN), not invalid_grant (0010 §3)', async (t) => {
     if (!dbAvailable) return t.skip('no DB');
     const accountId = await seedAccount('10003');
     const issued = await tokens.createRefreshToken({ accountId, app: AppClient.creator });
+    // Age the presented token's createdAt past the idle window (createdAt IS the
+    // last-activity stamp) while leaving the absolute cap well in the future.
     await raw.refreshToken.updateMany({
       where: { accountId },
-      data: { expiresAt: new Date(Date.now() - 1000) },
+      data: {
+        createdAt: new Date(Date.now() - (REFRESH_IDLE_TIMEOUT_SECONDS + 60) * 1000),
+        familyExpiresAt: new Date(Date.now() + REFRESH_ABSOLUTE_TTL_SECONDS * 1000),
+      },
     });
     await assert.rejects(
       () => tokens.rotateRefreshToken(issued.token),
       (e: unknown) =>
         e instanceof HttpException &&
-        (e.getResponse() as { code?: string }).code === 'invalid_grant',
+        (e.getResponse() as { code?: string }).code === 'reauth_required',
     );
     const count = await raw.refreshToken.count({ where: { accountId } });
-    assert.equal(count, 1, 'an expired token must not mint a replacement');
+    assert.equal(count, 1, 'an idle-lapsed token must not mint a replacement');
+  });
+
+  it('cap-expired token → session_expired even when recently active (0010 §3)', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    const accountId = await seedAccount('10006');
+    const issued = await tokens.createRefreshToken({ accountId, app: AppClient.creator });
+    // Fresh createdAt (idle NOT tripped), but the immutable family anchor is in
+    // the past → the absolute cap fires regardless of activity.
+    await raw.refreshToken.updateMany({
+      where: { accountId },
+      data: {
+        createdAt: new Date(),
+        familyExpiresAt: new Date(Date.now() - 1000),
+      },
+    });
+    await assert.rejects(
+      () => tokens.rotateRefreshToken(issued.token),
+      (e: unknown) =>
+        e instanceof HttpException &&
+        (e.getResponse() as { code?: string }).code === 'session_expired',
+    );
+  });
+
+  it('carries the family anchor forward UNCHANGED across rotations (no sliding)', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    const accountId = await seedAccount('10007');
+    const first = await tokens.createRefreshToken({ accountId, app: AppClient.creator });
+    const birthAnchor = (
+      await raw.refreshToken.findFirst({ where: { familyId: first.familyId } })
+    )?.familyExpiresAt;
+    assert.ok(birthAnchor, 'a new family must anchor familyExpiresAt');
+
+    // Rotate several times; each fresh row must keep the SAME anchor. If the
+    // anchor were recomputed as now+TTL the cap would slide and never trip.
+    let current = first.token;
+    for (let i = 0; i < 3; i += 1) {
+      const rotated = await tokens.rotateRefreshToken(current);
+      current = rotated.token;
+      const liveRow = await raw.refreshToken.findFirst({
+        where: { familyId: first.familyId, revokedAt: null },
+      });
+      assert.equal(
+        liveRow?.familyExpiresAt?.getTime(),
+        birthAnchor.getTime(),
+        'rotation must carry the birth anchor forward unchanged',
+      );
+    }
+
+    // Push the (unchanged) anchor into the past → the cap now kills the family.
+    await raw.refreshToken.updateMany({
+      where: { familyId: first.familyId },
+      data: { familyExpiresAt: new Date(Date.now() - 1000), createdAt: new Date() },
+    });
+    await assert.rejects(
+      () => tokens.rotateRefreshToken(current),
+      (e: unknown) =>
+        e instanceof HttpException &&
+        (e.getResponse() as { code?: string }).code === 'session_expired',
+    );
+  });
+
+  it('theft (reuse) revokes the device row; a benign race does NOT (0010 §7.4)', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    // --- theft path revokes device trust ---
+    const theftAccount = await seedAccount('10008');
+    const theftDevice = await raw.trustedDevice.create({
+      data: { accountId: theftAccount, app: AppClient.creator, tokenHash: `td_${theftAccount}` },
+    });
+    const issued = await tokens.createRefreshToken({ accountId: theftAccount, app: AppClient.creator });
+    await tokens.rotateRefreshToken(issued.token); // `issued` now revoked
+    // Age past the benign-race grace window → genuine reuse-after-detection (F4).
+    await raw.refreshToken.updateMany({
+      where: { familyId: issued.familyId, replacedById: { not: null } },
+      data: { revokedAt: new Date(Date.now() - (REFRESH_REUSE_GRACE_MS + 60_000)) },
+    });
+    await assert.rejects(
+      () => tokens.rotateRefreshToken(issued.token), // replay = theft
+      (e: unknown) =>
+        e instanceof HttpException &&
+        (e.getResponse() as { code?: string }).code === 'invalid_grant',
+    );
+    const revokedDevice = await raw.trustedDevice.findUnique({ where: { id: theftDevice.id } });
+    assert.ok(revokedDevice?.revokedAt, 'detected theft must revoke device trust');
+
+    // --- benign concurrent race leaves device trust intact ---
+    const raceAccount = await seedAccount('10009');
+    const raceDevice = await raw.trustedDevice.create({
+      data: { accountId: raceAccount, app: AppClient.creator, tokenHash: `td_${raceAccount}` },
+    });
+    const raceIssued = await tokens.createRefreshToken({
+      accountId: raceAccount,
+      app: AppClient.creator,
+    });
+    const results = await Promise.allSettled([
+      tokens.rotateRefreshToken(raceIssued.token),
+      tokens.rotateRefreshToken(raceIssued.token),
+    ]);
+    assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+    assert.equal(results.filter((r) => r.status === 'rejected').length, 1);
+    const liveDevice = await raw.trustedDevice.findUnique({ where: { id: raceDevice.id } });
+    assert.equal(liveDevice?.revokedAt, null, 'a benign race must NOT revoke device trust');
+  });
+
+  it('H1 grace: a just-rotated token replayed within the window is a benign race, not theft', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    // A device + a live session whose token was JUST rotated away (revoked
+    // < REFRESH_REUSE_GRACE_MS ago) with a single legit replacement still live.
+    const acct = await seedAccount('10010');
+    const device = await raw.trustedDevice.create({
+      data: { accountId: acct, app: AppClient.creator, tokenHash: `td_${acct}` },
+    });
+    const first = await tokens.createRefreshToken({ accountId: acct, app: AppClient.creator });
+    await tokens.rotateRefreshToken(first.token); // `first` revoked ~now, replacement live
+
+    // Replaying `first` immediately (cross-tab/prefetch race the Edge
+    // single-flight cannot cover) must be tolerated: invalid_grant, but the
+    // family stays alive and — critically — device trust is NOT revoked.
+    await assert.rejects(
+      () => tokens.rotateRefreshToken(first.token),
+      (e: unknown) =>
+        e instanceof HttpException &&
+        (e.getResponse() as { code?: string }).code === 'invalid_grant',
+    );
+    const live = await raw.refreshToken.findFirst({
+      where: { familyId: first.familyId, revokedAt: null },
+    });
+    assert.ok(live, 'the benign race must leave the replacement token usable');
+    assert.equal(live?.replacedById, null, 'the replacement must remain un-rotated');
+    const stillTrusted = await raw.trustedDevice.findUnique({ where: { id: device.id } });
+    assert.equal(
+      stillTrusted?.revokedAt,
+      null,
+      'a benign refresh race must NOT revoke device trust (H1)',
+    );
+  });
+
+  it('H1 grace: replay OUTSIDE the window still burns the family + device trust (F4 intact)', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    const acct = await seedAccount('10011');
+    const device = await raw.trustedDevice.create({
+      data: { accountId: acct, app: AppClient.creator, tokenHash: `td_${acct}` },
+    });
+    const first = await tokens.createRefreshToken({ accountId: acct, app: AppClient.creator });
+    await tokens.rotateRefreshToken(first.token);
+    // Push the revocation stamp past the grace window → the replay is genuine
+    // reuse-after-detection, not a race.
+    await raw.refreshToken.updateMany({
+      where: { familyId: first.familyId, replacedById: { not: null } },
+      data: { revokedAt: new Date(Date.now() - (REFRESH_REUSE_GRACE_MS + 60_000)) },
+    });
+    await assert.rejects(
+      () => tokens.rotateRefreshToken(first.token),
+      (e: unknown) =>
+        e instanceof HttpException &&
+        (e.getResponse() as { code?: string }).code === 'invalid_grant',
+    );
+    const rows = await raw.refreshToken.findMany({ where: { familyId: first.familyId } });
+    assert.ok(rows.every((r) => r.revokedAt != null), 'genuine reuse must burn the whole family');
+    const revoked = await raw.trustedDevice.findUnique({ where: { id: device.id } });
+    assert.ok(revoked?.revokedAt, 'genuine reuse must revoke device trust (F4)');
+  });
+
+  it('H1 grace: replay within the window but AFTER the replacement itself rotates → theft', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    // The replacement being itself revoked/rotated is the true
+    // reuse-after-detection signature even inside the time window.
+    const acct = await seedAccount('10012');
+    const device = await raw.trustedDevice.create({
+      data: { accountId: acct, app: AppClient.creator, tokenHash: `td_${acct}` },
+    });
+    const first = await tokens.createRefreshToken({ accountId: acct, app: AppClient.creator });
+    const second = await tokens.rotateRefreshToken(first.token); // first → second
+    await tokens.rotateRefreshToken(second.token); // second now rotated too (chain moved on)
+
+    // `first` was revoked ~now (within the window), but its replacement `second`
+    // is no longer live → not a single-rotation race → theft.
+    await assert.rejects(
+      () => tokens.rotateRefreshToken(first.token),
+      (e: unknown) =>
+        e instanceof HttpException &&
+        (e.getResponse() as { code?: string }).code === 'invalid_grant',
+    );
+    const revoked = await raw.trustedDevice.findUnique({ where: { id: device.id } });
+    assert.ok(revoked?.revokedAt, 'a moved-on chain replayed is theft → device trust revoked (F4)');
   });
 
   it('carries the app through rotation (a creator token stays a creator token)', async (t) => {

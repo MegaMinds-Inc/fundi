@@ -55,6 +55,82 @@ export interface VerifyOtpResult {
   tokens?: AuthTokens;
   needsOnboarding: boolean;
   memberships: MembershipDTO[];
+  /**
+   * True when the account has no PIN yet (`pinHash` is null) and the first-run
+   * PIN-setup nudge should be shown (feature 0010 §6). Enrollment (OTP) is where
+   * device trust is minted, so this rides on the verify result.
+   */
+  needsPinSetup: boolean;
+}
+
+/**
+ * Result of `POST /auth/pin/verify` (device + PIN step-up, feature 0010 §4.3/§6).
+ * Mints a fresh token pair with no SMS; the rotated device secret is set as a
+ * fresh cookie by the BFF (never surfaced to the browser). Same body shape the
+ * browser sees as any other token-issuing endpoint — only the access token +
+ * memberships reach JS.
+ */
+export interface PinVerifyResult {
+  tokens: AuthTokens;
+  memberships: MembershipDTO[];
+}
+
+/** Result of `POST /auth/pin/set` (feature 0010 §7.1). */
+export interface SetPinResult {
+  ok: true;
+}
+
+/**
+ * Result of `GET /auth/me` — the principal + memberships for the UI auth state,
+ * plus `needsPinSetup`: live DB state (`pinHash == null`), NOT a token claim, so
+ * the mandatory PIN-setup gate (feature 0010 CHANGE 1) self-clears the instant a
+ * PIN is set and never loops on a stale token. The PIN hash is never surfaced.
+ */
+export interface MeResult {
+  principal: Principal;
+  memberships: MembershipDTO[];
+  needsPinSetup: boolean;
+}
+
+/**
+ * Body of `POST /auth/pin/set` (feature 0010 §7.1). First-time set (no existing
+ * PIN) is allowed on session auth alone; a *replace* MUST carry a fresh proof —
+ * the current PIN (`currentPin`) or a just-issued OTP code (`otpCode`) for the
+ * account's phone — never a bare access token.
+ */
+export interface PinSet {
+  pin: string;
+  currentPin?: string;
+  otpCode?: string;
+}
+
+/** Body of `POST /auth/pin/verify` (device-cookie-gated step-up). */
+export interface PinVerify {
+  pin: string;
+  app: AppClient;
+}
+
+/** Body of `POST /auth/pin/forgot` (server-driven reset; the client holds no phone). */
+export interface PinForgot {
+  app: AppClient;
+}
+
+/**
+ * Body of `POST /auth/pin/reset` (forgot-PIN reset, feature 0010 §4.6/§12.6).
+ * The client holds NO phone: the reset OTP (`otpCode`) is the phone-ownership
+ * proof and `pin` is the new PIN — both submitted together in ONE call. The API
+ * resolves the account from the device cookie, consumes the OTP, sets the new
+ * PIN, and mints a fresh signed-in session. The response is a {@link PinVerifyResult}.
+ */
+export interface PinReset {
+  otpCode: string;
+  pin: string;
+  app: AppClient;
+}
+
+/** Body of `POST /auth/device/forget` (clears the current trusted-device row). */
+export interface DeviceForget {
+  app: AppClient;
 }
 
 /** Body of `POST /auth/otp/request`. Phone is a friendly local format; the API normalizes to E.164. */

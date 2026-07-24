@@ -15,11 +15,36 @@ export interface IssuedTokens extends AuthTokens {
 }
 
 /** API response for `POST /auth/otp/verify`. `tokens` widens `AuthTokens` to
- * {@link IssuedTokens}; the shape still satisfies the shared `VerifyOtpResult`. */
+ * {@link IssuedTokens}; the shape still satisfies the shared `VerifyOtpResult`.
+ * `deviceSecret` is the freshly-minted trusted-device secret (feature 0010 §6):
+ * it travels only server-to-server (API → BFF), which sets the `__Host-fundi_dt`
+ * cookie and strips it before anything reaches the browser — exactly the
+ * `refreshToken` handling on {@link IssuedTokens}. */
 export interface VerifyOtpApiResult {
   tokens?: IssuedTokens;
   needsOnboarding: boolean;
   memberships: MembershipDTO[];
+  needsPinSetup: boolean;
+  deviceSecret?: string;
+}
+
+/** API response for `POST /auth/pin/verify` (step-up, feature 0010 §4.3/§6) AND
+ * for `POST /auth/pin/reset` (forgot-PIN reset, §4.6/§12.6) — both mint a fresh
+ * token pair (no SMS on verify) plus the ROTATED device secret for the BFF to
+ * write back as a refreshed `__Host-fundi_dt` cookie. `deviceSecret` is server-
+ * to-server only (stripped by the BFF), like `refreshToken`. */
+export interface PinVerifyApiResult extends IssuedTokens {
+  deviceSecret: string;
+  memberships: MembershipDTO[];
+}
+
+/** API response for `POST /auth/pin/reset` — identical to the step-up result:
+ * a fresh signed-in pair + rotated device secret + memberships (§4.6/§12.6). */
+export type PinResetApiResult = PinVerifyApiResult;
+
+/** API response for `POST /auth/pin/set` (feature 0010 §7.1). */
+export interface SetPinApiResult {
+  ok: true;
 }
 
 /** API response for `POST /auth/refresh`. */
@@ -31,8 +56,11 @@ export interface OnboardingApiResult {
   memberships: MembershipDTO[];
 }
 
-/** API response for `GET /auth/me`. */
+/** API response for `GET /auth/me`. `needsPinSetup` is live DB state
+ * (`pinHash == null`), not a token claim, so the mandatory PIN-setup gate
+ * (feature 0010 CHANGE 1) self-clears the instant a PIN is set. */
 export interface MeApiResult {
   principal: Principal;
   memberships: MembershipDTO[];
+  needsPinSetup: boolean;
 }

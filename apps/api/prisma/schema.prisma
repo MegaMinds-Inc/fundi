@@ -161,9 +161,16 @@ model Organisation {
 model Account {
   id        String   @id @default(cuid())
   phone     String   @unique
+  // PIN step-up credential (feature 0010 §5). scrypt hash over `pinSalt`,
+  // additionally HMAC-peppered with a key held outside the DB (PIN_PEPPER).
+  // Per-Account (shared creator+learner). Nullable: existing accounts have no
+  // PIN — a null `pinHash` means `needsPinSetup`.
+  pinHash   String?  @map("pin_hash")
+  pinSalt   String?  @map("pin_salt")
   createdAt DateTime @default(now()) @map("created_at")
 
-  memberships Membership[]
+  memberships    Membership[]
+  trustedDevices TrustedDevice[]
 
   @@map("accounts")
 }
@@ -215,12 +222,40 @@ model RefreshToken {
   tokenHash    String    @unique @map("token_hash")
   app          AppClient
   expiresAt    DateTime  @map("expires_at")
+  // Absolute-cap anchor for the family (feature 0010 §3): set at family birth
+  // and carried forward UNCHANGED on every rotation — never `now + TTL`, or the
+  // cap never trips. Nullable for backfill of live rows (code treats null as
+  // `createdAt + REFRESH_ABSOLUTE_TTL_SECONDS`, then tighten).
+  familyExpiresAt DateTime? @map("family_expires_at")
   revokedAt    DateTime? @map("revoked_at")
   replacedById String?   @map("replaced_by_id")
   createdAt    DateTime  @default(now()) @map("created_at")
 
   @@index([accountId, app])
   @@map("refresh_tokens")
+}
+
+// Enrolled-device credential (feature 0010 §5). A high-entropy random secret
+// lives in a `__Host-` httpOnly Secure SameSite=Strict cookie; only its
+// SHA-256 is stored here (mirrors RefreshToken.tokenHash — NOT the secret).
+// Presence + hash-match means "skip OTP, PIN is enough". Non-tenant-scoped
+// (pre-auth, like RefreshToken/OtpChallenge): must be readable before any org
+// context exists, so it carries no organisation_id and is NOT in
+// TENANT_SCOPED_MODELS. PIN lockout is tracked per-device here (§5, §7.5).
+model TrustedDevice {
+  id             String    @id @default(cuid())
+  accountId      String    @map("account_id")
+  app            AppClient
+  tokenHash      String    @unique @map("token_hash")
+  pinAttempts    Int       @default(0) @map("pin_attempts")
+  pinLockedUntil DateTime? @map("pin_locked_until")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, app])
+  @@map("trusted_devices")
 }
 
 // ---------------------------------------------------------------------------

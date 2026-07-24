@@ -8,6 +8,13 @@ import { Button, Input, OfflineBanner } from '@fundi/ui';
 // with an org-less onboarding token: capture the workspace name + the creator's
 // own name, POST to the onboarding BFF route (which bootstraps the org and
 // re-issues an org-scoped token), then land on the dashboard.
+//
+// First-run PIN setup is NOT here anymore (feature 0010 CHANGE 1): the mandatory
+// PIN-setup gate in the authenticated shell (app/page.tsx) reads live
+// `needsPinSetup` from /auth/me and redirects to /pin-setup on the way to the
+// dashboard, so this route just creates the workspace and lands on `/` — the
+// gate then catches a missing PIN. This removes the double-prompt the old
+// `?setupPin=` tail introduced.
 export default function OnboardingPage() {
   const router = useRouter();
   const [orgName, setOrgName] = useState('');
@@ -41,6 +48,8 @@ export default function OnboardingPage() {
     setSubmitting(false);
 
     if (res.ok) {
+      // Workspace created. Land on the dashboard; the PIN-setup gate there routes
+      // to /pin-setup if this account still has no PIN (feature 0010 CHANGE 1).
       router.replace('/');
       return;
     }

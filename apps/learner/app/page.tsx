@@ -1,11 +1,23 @@
+import { redirect } from 'next/navigation';
 import { Card, EmptyState } from '@fundi/ui';
+import { getMe } from './lib/bff';
 import { SignOutButton } from './components/SignOutButton';
 
 // Learner home (plan A.6 / B.6 / D6). Learners are enrolled by a creator, never
 // self-serve, so a freshly-authenticated learner legitimately has no programs
 // yet. Corrected framing: the learner PWA is a real surface for lessons and
 // progress — do NOT imply lessons arrive via WhatsApp.
-export default function LearnerHomePage() {
+//
+// This is also the authenticated shell + mandatory PIN-setup gate (feature 0010
+// CHANGE 1): a Server Component that reads live `needsPinSetup` from /auth/me
+// BEFORE paint. No session → /login (defensive; the middleware normally handles
+// it first). Needs a PIN → /pin-setup (DB state, not a token claim, so it
+// self-clears once the PIN is set — no stale-token loop). /login and /pin-setup
+// live outside this shell and are never gated.
+export default async function LearnerHomePage() {
+  const me = await getMe();
+  if (!me) redirect('/login');
+  if (me.needsPinSetup) redirect('/pin-setup');
   return (
     <main
       style={{

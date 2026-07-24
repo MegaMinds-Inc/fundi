@@ -8,8 +8,10 @@ import { PrismaService } from '../../prisma';
 import {
   ACCESS_TOKEN_TTL_SECONDS,
   JWT_CLOCK_TOLERANCE_SECONDS,
+  REFRESH_ABSOLUTE_TTL_SECONDS,
+  REFRESH_IDLE_TIMEOUT_SECONDS,
+  REFRESH_REUSE_GRACE_MS,
   REFRESH_TOKEN_BYTES,
-  REFRESH_TOKEN_TTL_SECONDS,
 } from './auth.constants';
 
 /** The signed access-token claims (plan A.4). `org` is omitted for an org-less
@@ -95,15 +97,27 @@ export class TokenService {
   }
 
   /** Mint a new refresh token. Starts a fresh family unless `familyId` is
-   * supplied (rotation keeps the family). */
+   * supplied (rotation keeps the family).
+   *
+   * The absolute cap (feature 0010 §3) is anchored on `familyExpiresAt`: a NEW
+   * family anchors it at `now + REFRESH_ABSOLUTE_TTL_SECONDS`; a rotation MUST
+   * pass the existing family's anchor so it is carried forward UNCHANGED (never
+   * `now + TTL`, or the cap slides and never trips). The per-row `expiresAt` is
+   * set to that same anchor so there is exactly ONE cap mechanism — idle is
+   * measured off `createdAt` in `rotateRefreshToken`, never off a second field. */
   async createRefreshToken(params: {
     accountId: string;
     app: AppClient;
     familyId?: string;
+    familyExpiresAt?: Date;
   }): Promise<IssuedRefreshToken> {
     const raw = randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
     const tokenHash = this.hashToken(raw);
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+    // New family → anchor now; rotation → carry the family's anchor forward.
+    const familyExpiresAt =
+      params.familyExpiresAt ?? new Date(Date.now() + REFRESH_ABSOLUTE_TTL_SECONDS * 1000);
+    // ONE cap mechanism: the per-row expiry IS the immutable family anchor.
+    const expiresAt = familyExpiresAt;
     const row = await this.prisma.client.refreshToken.create({
       data: {
         accountId: params.accountId,
@@ -111,6 +125,7 @@ export class TokenService {
         // A new session starts a fresh family; rotation keeps the family id.
         familyId: params.familyId ?? randomUUID(),
         tokenHash,
+        familyExpiresAt,
         expiresAt,
       },
     });
@@ -120,10 +135,23 @@ export class TokenService {
   /**
    * Rotate `rawToken`: revoke the presented row and mint a replacement in the
    * same family. Reuse detection: presenting an already-revoked token revokes
-   * the *entire* family (theft). A benign concurrent-tab race — two rotations
-   * of the same still-valid token — is distinguished from theft: the loser
+   * the *entire* family (theft) — EXCEPT within a short `REFRESH_REUSE_GRACE_MS`
+   * window after a single legit rotation, which is treated as a benign
+   * cross-tab/prefetch race (`invalid_grant`, no family/device revocation). A
+   * benign concurrent-tab race that reaches the transaction — two rotations of
+   * the same still-valid token — is likewise distinguished from theft: the loser
    * fails the atomic `revokedAt: null` guard and gets `invalid_grant` WITHOUT
    * tripping family revocation.
+   *
+   * The old single `expiresAt <= now` check is split into the two independent
+   * re-auth clocks of feature 0010 §3, checked in order BEFORE the transaction:
+   *   (a) idle    — `now − createdAt > REFRESH_IDLE_TIMEOUT_SECONDS` → `reauth_required`
+   *   (b) absolute — `now > familyExpiresAt`                         → `session_expired`
+   * Both send the user to a free PIN step-up (not OTP). Reuse/theft and the
+   * concurrent-race loser keep returning `invalid_grant` (§6): the race loser
+   * must silently retry, the theft victim must be forced to OTP. Detected theft
+   * ALSO revokes the account's device trust for this app (§7.4) so the attacker
+   * cannot PIN back in; the benign race must NOT touch device trust.
    */
   async rotateRefreshToken(rawToken: string): Promise<RotatedRefreshToken> {
     const tokenHash = this.hashToken(rawToken);
@@ -132,19 +160,63 @@ export class TokenService {
     if (!row) {
       throw this.invalidGrant('Unknown refresh token.');
     }
+
+    const now = Date.now();
     if (row.revokedAt) {
-      // Reuse of a token we already rotated away — treat as theft and burn the
-      // whole family so a stolen token cannot outlive its detection.
+      // The presented token was already rotated away. This is USUALLY theft — a
+      // replay of a token we retired — and burns the whole family so a stolen
+      // token cannot outlive its detection, plus revokes device trust so the
+      // attacker cannot re-enter via PIN (§7.4).
+      //
+      // BUT a benign cross-tab/prefetch refresh race is indistinguishable from a
+      // replay at the HTTP layer: two isolates each present the same still-valid
+      // token microseconds apart, and the Edge single-flight cannot span the
+      // Node BFF. To avoid logging a legitimate user out AND de-enrolling their
+      // device over such a race, we tolerate a SMALL grace window (mirrors the
+      // OAuth refresh-rotation grace pattern, and extends the same "benign race,
+      // not theft" tolerance already applied to the in-transaction race loser
+      // below). Treat it as a benign concurrent rotation — `invalid_grant`
+      // WITHOUT family/device revocation — ONLY IF the token was revoked within
+      // REFRESH_REUSE_GRACE_MS AND exactly one legitimate rotation happened: its
+      // replacement row exists, is still live (`revokedAt == null`) and itself
+      // un-rotated (`replacedById == null`). Otherwise (revoked longer ago, or
+      // the replacement is itself already revoked/rotated — the true
+      // reuse-after-detection signature) fall through to full revocation.
+      //
+      // Tradeoff: an attacker replaying a stolen token who happens to land inside
+      // this sub-5s window immediately after a legit rotation escapes family
+      // revocation on THAT call — vanishingly unlikely — but any reuse outside
+      // the window still trips it. Device trust is NEVER revoked on the grace path.
+      const replacement = row.replacedById
+        ? await this.prisma.client.refreshToken.findUnique({ where: { id: row.replacedById } })
+        : null;
+      const withinGrace = now - row.revokedAt.getTime() <= REFRESH_REUSE_GRACE_MS;
+      const oneLegitRotation =
+        replacement != null && replacement.revokedAt == null && replacement.replacedById == null;
+      if (withinGrace && oneLegitRotation) {
+        throw this.invalidGrant('Refresh token already rotated — concurrent refresh.');
+      }
       await this.revokeFamily(row.familyId);
+      await this.revokeDeviceTrust(row.accountId, row.app);
       throw this.invalidGrant('Refresh token reuse detected — session revoked.');
     }
-    if (row.expiresAt.getTime() <= Date.now()) {
-      throw this.invalidGrant('Refresh token expired.');
+
+    // (a) Idle re-auth: the presented token's createdAt IS its last-activity
+    // stamp (each rotation mints a fresh row), so idle = now − createdAt.
+    if (now - row.createdAt.getTime() > REFRESH_IDLE_TIMEOUT_SECONDS * 1000) {
+      throw this.reauthRequired();
+    }
+    // (b) Absolute cap: anchored at family birth, never extended. Null-tolerant
+    // for backfilled rows (treat as createdAt + ABSOLUTE).
+    const familyExpiresAt = this.resolveFamilyExpiresAt(row);
+    if (now > familyExpiresAt.getTime()) {
+      throw this.sessionExpired();
     }
 
     const raw = randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
     const newHash = this.hashToken(raw);
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+    // Carry the immutable family anchor forward UNCHANGED; per-row expiry tracks it.
+    const expiresAt = familyExpiresAt;
 
     return this.prisma.client.$transaction(async (tx) => {
       // Atomically claim the rotation: only the caller that flips revokedAt
@@ -163,6 +235,7 @@ export class TokenService {
           app: row.app,
           familyId: row.familyId,
           tokenHash: newHash,
+          familyExpiresAt,
           expiresAt,
         },
       });
@@ -198,11 +271,53 @@ export class TokenService {
     });
   }
 
+  /**
+   * Revoke the account's device trust for this app on detected theft (§7.4).
+   * Done via Prisma directly (not by injecting TrustedDeviceService) to avoid a
+   * DI cycle. Only the reuse/theft branch calls this — never the benign race.
+   */
+  private async revokeDeviceTrust(accountId: string, app: AppClient): Promise<void> {
+    await this.prisma.client.trustedDevice.updateMany({
+      where: { accountId, app, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /** The immutable absolute-cap anchor, tolerant of backfilled (null) rows:
+   * a null `familyExpiresAt` is treated as `createdAt + REFRESH_ABSOLUTE_TTL`. */
+  private resolveFamilyExpiresAt(row: {
+    familyExpiresAt: Date | null;
+    createdAt: Date;
+  }): Date {
+    return (
+      row.familyExpiresAt ??
+      new Date(row.createdAt.getTime() + REFRESH_ABSOLUTE_TTL_SECONDS * 1000)
+    );
+  }
+
   private hashToken(raw: string): string {
     return createHash('sha256').update(raw).digest('hex');
   }
 
   private invalidGrant(message: string): UnauthorizedException {
     return new UnauthorizedException({ code: 'invalid_grant', message });
+  }
+
+  /** Idle clock tripped (§3): the session is valid but stale — step up with a
+   * PIN. Distinct code so the BFF routes to `pin-entry`, not OTP. */
+  private reauthRequired(): UnauthorizedException {
+    return new UnauthorizedException({
+      code: 'reauth_required',
+      message: 'Re-authentication required — please enter your PIN.',
+    });
+  }
+
+  /** Absolute cap tripped (§3): the family is too old regardless of activity —
+   * step up with a PIN. Distinct code so the BFF routes to `pin-entry`. */
+  private sessionExpired(): UnauthorizedException {
+    return new UnauthorizedException({
+      code: 'session_expired',
+      message: 'Session expired — please enter your PIN.',
+    });
   }
 }

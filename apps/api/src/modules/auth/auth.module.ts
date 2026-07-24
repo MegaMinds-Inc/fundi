@@ -7,16 +7,62 @@ import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
 import { OtpService } from './otp.service';
 import { PhoneService } from './phone.service';
+import { PinService } from './pin.service';
+import { TrustedDeviceService } from './trusted-device.service';
+import { SmsBudgetService } from './sms-budget.service';
 import { OtpDeliveryService, StubOtpDeliveryService } from './otp-delivery.service';
+import { SmsOtpDeliveryService } from './sms-otp-delivery.service';
+import { SmsProvider } from './sms-provider';
+import { VynfySmsProvider } from './providers/vynfy-sms.provider';
 import { AuthGuard } from './auth.guard';
 import { OrgContextInterceptor } from './org-context.interceptor';
 import { OrgContextExceptionFilter } from './org-context.filter';
 import {
   ACCESS_TOKEN_TTL_SECONDS,
+  OTP_EXPIRY_MINUTES,
   OTP_REQUEST_THROTTLE_LIMIT,
   OTP_REQUEST_THROTTLE_TTL_MS,
   resolveJwtSecret,
+  resolveOtpDeliveryDriver,
+  resolveOtpMessageTemplate,
+  resolveSmsProviderName,
+  resolveSmsSenderId,
+  resolveVynfyConfig,
+  type SmsProviderName,
 } from './auth.constants';
+
+/**
+ * Build the SMS provider adaptor selected by `SMS_PROVIDER` (feature 0009).
+ * The switch is the only place a new provider is registered; everything else is
+ * provider-agnostic. `resolveSmsProviderName` has already rejected unknown
+ * values, so the default arm is unreachable in practice.
+ */
+function createSmsProvider(name: SmsProviderName): SmsProvider {
+  switch (name) {
+    case 'vynfy':
+      return new VynfySmsProvider(resolveVynfyConfig());
+    default:
+      throw new Error(`No SMS provider adaptor for '${name as string}'.`);
+  }
+}
+
+/**
+ * Choose the OTP delivery driver from config at DI time. `stub` (the default,
+ * used by dev + CI) keeps the current console/recording behaviour; `sms` wires
+ * the real provider path. Required secrets are validated here, so a
+ * misconfigured `sms` deploy fails loudly at boot rather than dropping codes.
+ */
+function createOtpDeliveryService(): OtpDeliveryService {
+  if (resolveOtpDeliveryDriver() === 'stub') {
+    return new StubOtpDeliveryService();
+  }
+  return new SmsOtpDeliveryService(createSmsProvider(resolveSmsProviderName()), {
+    senderId: resolveSmsSenderId(),
+    messageTemplate: resolveOtpMessageTemplate(),
+    expiryMinutes: OTP_EXPIRY_MINUTES,
+    metadata: { purpose: 'otp' },
+  });
+}
 
 /**
  * The auth module. It registers three GLOBAL providers that switch the
@@ -52,7 +98,10 @@ import {
     TokenService,
     OtpService,
     PhoneService,
-    { provide: OtpDeliveryService, useClass: StubOtpDeliveryService },
+    PinService,
+    TrustedDeviceService,
+    SmsBudgetService,
+    { provide: OtpDeliveryService, useFactory: createOtpDeliveryService },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
     { provide: APP_FILTER, useClass: OrgContextExceptionFilter },

@@ -24,6 +24,18 @@ export interface OtpInputProps {
   autoFocus?: boolean;
   /** Base name for the boxes — each box is named `${name}-${i}`. */
   name?: string;
+  /**
+   * Mask each box as a password dot (`type="password"`) while keeping the
+   * numeric keypad (`inputMode="numeric"`). Use for a chosen secret like a PIN;
+   * OTP entry (visible, temporary) leaves this false. Default false.
+   */
+  mask?: boolean;
+  /**
+   * `autocomplete` value applied to the first box (the OS autofill anchor);
+   * remaining boxes stay `off`. Default `'one-time-code'` for OTP. A chosen PIN
+   * must pass `'off'` — it is a secret, never an SMS autofill target.
+   */
+  autoComplete?: string;
 }
 
 const BOX_STYLE: CSSProperties = {
@@ -58,6 +70,8 @@ export function OtpInput({
   disabled = false,
   autoFocus = false,
   name = 'otp',
+  mask = false,
+  autoComplete = 'one-time-code',
 }: OtpInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const [focused, setFocused] = useState<number | null>(null);
@@ -136,9 +150,9 @@ export function OtpInput({
             refs.current[i] = el;
           }}
           name={`${name}-${i}`}
-          type="text"
+          type={mask ? 'password' : 'text'}
           inputMode="numeric"
-          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          autoComplete={i === 0 ? autoComplete : 'off'}
           maxLength={1}
           disabled={disabled}
           autoFocus={autoFocus && i === 0}
