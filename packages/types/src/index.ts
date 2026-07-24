@@ -23,3 +23,11 @@ export type {
   PinReset,
   DeviceForget,
 } from './auth';
+
+export type {
+  InviteLearnerRequest,
+  EnrollmentSummary,
+  ProgramSummary,
+  RosterCohort,
+  RosterResponse,
+} from './enrollment';
