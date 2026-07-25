@@ -1,5 +1,14 @@
 # Program & curriculum builder
 
+> **Superseded 2026-07-25.** The design-files block noted below has lifted — the builder was
+> redesigned (real draft/publish, module unlock/visibility, generative `ModuleCover`) and reviewed
+> in the `claude.ai/design` project. The task list below predates that redesign and is missing the
+> new fields/components (no `unlockMode`, no `ModuleCover`, no draft/publish). Do not build against
+> it as-is. Current spec: `packages/docs/architecture/0002-program-builder-technical-design.md`
+> (implementation-ready) and ADR-014 in
+> `packages/docs/clickup-sync/product/technical-architecture-adr.md` (domain-model decisions).
+> Left in place below for history, not as an active task list.
+
 Maps to the "BRD: Program & Curriculum Builder" and the largest, most stateful creator surface.
 Note per `packages/docs/clickup-sync/sprints/sprint-2-program-access-enrollment.md`: the full
 builder UI is currently **blocked on missing design files** for some pieces (per that sprint doc's
