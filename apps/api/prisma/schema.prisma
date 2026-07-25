@@ -43,6 +43,33 @@ enum ProgramVisibility {
   private
 }
 
+// Program Builder redesign (ADR-013). `published` is purely a discoverability
+// / enrollment gate — publishing does NOT freeze content; editing a published
+// program is immediately live. `updatedAt` vs `publishedAt` (both already
+// present) is how the builder shows "unpublished changes" without a snapshot.
+enum ProgramStatus {
+  draft
+  published
+}
+
+// Generative module-cover treatment (ADR-013) — chosen once per Program;
+// every Module then gets a deterministic look from its own position, zero
+// image bytes, zero per-module creator effort.
+enum ProgramCoverStyle {
+  gradient
+  geometric
+}
+
+// Per-module visibility + drip pacing, one mechanism (ADR-013). `hidden` is a
+// manual, creator-controlled "not ready yet" gate — distinct from the
+// scheduling modes, which only govern timing for an already-visible module.
+enum ModuleUnlockMode {
+  hidden
+  immediate
+  after_previous
+  after_days
+}
+
 enum LessonType {
   text
   video
@@ -289,7 +316,19 @@ model Program {
   description    String?
   shape          ProgramShape
   visibility     ProgramVisibility @default(private)
+  status         ProgramStatus     @default(draft)
+  coverStyle     ProgramCoverStyle @default(gradient) @map("cover_style")
+  // Set on every (re-)publish. `status === published && updatedAt >
+  // publishedAt` is the whole "has unpublished changes" check — no content
+  // snapshot needed (ADR-013). NOT reset on unpublish; kept as "last time
+  // this was live" history.
+  publishedAt    DateTime?         @map("published_at")
   createdAt      DateTime          @default(now()) @map("created_at")
+  // NOTE: Prisma's `@updatedAt` only bumps when this row itself is written.
+  // The "unpublished changes" check needs this to reflect child Module/Lesson
+  // edits too — ProgramsService/EnrollmentService's module/lesson mutations
+  // must explicitly touch the parent Program's `updatedAt` as well (see the
+  // Program Builder technical design doc). Easy to get wrong; call it out.
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
@@ -303,13 +342,20 @@ model Program {
 }
 
 model Module {
-  id             String   @id @default(cuid())
-  organisationId String   @map("organisation_id")
-  programId      String   @map("program_id")
+  id             String           @id @default(cuid())
+  organisationId String           @map("organisation_id")
+  programId      String           @map("program_id")
   title          String
+  description    String?
   order          Int
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  // hidden | immediate | after_previous | after_days (ADR-013). `hidden`
+  // keeps a module fully invisible to learners regardless of enrollment date;
+  // the other three govern only WHEN an already-visible module unlocks.
+  unlockMode     ModuleUnlockMode @default(immediate) @map("unlock_mode")
+  // Only meaningful when unlockMode = after_days.
+  unlockDays     Int?             @map("unlock_days")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   program      Program      @relation(fields: [programId], references: [id], onDelete: Cascade)

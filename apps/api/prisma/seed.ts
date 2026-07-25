@@ -40,6 +40,9 @@ async function main(): Promise<void> {
   });
 
   // --- Program 1: self-paced, public — invite lands `active` immediately.
+  // status: published — Program now defaults to `draft` (ADR-013), and a
+  // draft program has nothing enrollable about it; these fixtures exist
+  // specifically to exercise Enrollment, so they must be live.
   const publicProgram = await raw.program.create({
     data: {
       organisationId: org.id,
@@ -48,6 +51,8 @@ async function main(): Promise<void> {
       description: 'A self-paced intro course, open to anyone.',
       shape: 'self_paced',
       visibility: 'public',
+      status: 'published',
+      publishedAt: new Date(),
     },
   });
 
@@ -90,6 +95,8 @@ async function main(): Promise<void> {
       description: 'A cohort-based, approval-gated program.',
       shape: 'cohort',
       visibility: 'private',
+      status: 'published',
+      publishedAt: new Date(),
     },
   });
 
