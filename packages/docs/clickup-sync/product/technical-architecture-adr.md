@@ -60,8 +60,8 @@ Fundi is an **AI-powered, "create-and-forget" platform** that lets creators, edu
 | ---| --- |
 | Organisation | has many Mentors, Programs, billing. Every creator starts as an org. `organisation_id` is a required column on every tenant-scoped table. |
 | Mentor | belongs to Org; owns/runs Programs; has a role. |
-| Program | has a shape + visibility; has many Modules; has Cohorts. |
-| Module → Lesson | ordered; Lesson has a type (text / video / attachment / live / in-person / quiz later). |
+| Program | has a shape + visibility; has a draft/published status (ADR-013 — publishing is a discoverability/enrollment gate, not a content freeze) + a generative cover style; has many Modules; has Cohorts. |
+| Module → Lesson | ordered; Module has a description + an unlock mode (visibility + drip pacing, ADR-013); Lesson has a type (text / video / attachment / live / in-person / quiz later). |
 | Cohort · Enrollment | links Learner ↔ Program on a schedule; has approval state. |
 | Learner | phone-first identity; has Progress; reachable via Channel. |
 | Progress · Assessment | per Learner per Lesson; drives Signals & completion. |
@@ -72,6 +72,9 @@ Fundi is an **AI-powered, "create-and-forget" platform** that lets creators, edu
 **Enumerations**
 *   Program _shape_: `self_paced` · `cohort` · `one_to_one` · `workshop` · `hybrid`
 *   Program _visibility_: `public` · `private` (approval-gated)
+*   Program _status_ (ADR-013): `draft` · `published`
+*   Program _cover style_ (ADR-013): `gradient` · `geometric`
+*   Module _unlock mode_ (ADR-013): `hidden` · `immediate` · `after_previous` · `after_days`
 *   Lesson _type_: `text` · `video` · `attachment` · `live_online` · `in_person` · `quiz` (later)
 *   Enrollment _state_: `pending_approval` · `active` · `completed` · `dropped`
 *   Signal _type_: `lesson_overdue` · `reminder_unacknowledged` · `quiz_failed` · `help_requested` · `went_quiet`
@@ -357,6 +360,23 @@ Reply → Channel Service → InboundEvent (DONE / question / quiz answer) → C
 
 * * *
 
+### ADR-014: Program Builder content model — draft/publish, module visibility, generative covers
+**Status:** Accepted
+**Context:** The redesigned Program & Curriculum Builder (`ui_kits/program-builder/`) introduces three product concepts the original domain model (§3) had no field for: (1) a program can be a draft or published, and re-editing a published program is explicitly described in the design as never silently pushing changes to learners ("editing a published program never pushes changes to learners on its own"); (2) a creator needs a way to hold a specific module back from learners while still working on it, independent of any scheduled drip timing; (3) every module gets a generated cover treatment (gradient or geometric shapes) instead of requiring per-module image uploads. None of these existed as schema concepts before this redesign. Resolved through direct discussion with the PO in this session, including an explicit "how do I keep a module from being seen" follow-up question that changed the shape of the decision below.
+**Decision:**
+- **`Program.status` (`draft`/`published`) is a discoverability/enrollment gate, not a content-versioning system.** Publishing does not freeze content — once published, edits to Program/Module/Lesson rows are immediately what learners see. This was an explicit choice against building real snapshot/version history: "create & forget" and the Product Brief's MVP cut line never called for staged content review, and the actual `PublishBar` UI only exposes one Publish action at the Program level (no per-field or per-module publish step), so building real versioning would be solving a problem the design doesn't ask for.
+- **"Has unpublished changes" is computed from timestamps, not a content diff.** `Program.publishedAt` is set on every (re-)publish; `Program.updatedAt` must be treated as an aggregate that also bumps whenever any child Module or Lesson is created, edited, reordered, or deleted (Prisma's `@updatedAt` only bumps on writes to the Program row itself — this must be done explicitly in `ProgramsService`/whatever service owns Module/Lesson mutations, not left implicit). `status === 'published' && updatedAt > publishedAt` is the entire "you have unpublished changes" check.
+- **Programs can be unpublished** (`published` → `draft`), which stops new Enrollment (public auto-join or private invite — the not-yet-wired gate is tracked as a follow-up against `EnrollmentService.invite()`, see the Program Builder technical design doc). `publishedAt` is NOT cleared on unpublish; it's kept as "last time this program was live" history, and gets overwritten again on the next publish.
+- **Publishing is blocked unless the program has at least one non-`hidden` Module with at least one Lesson** — an empty or fully-hidden program cannot be published, only saved as a draft.
+- **Module-level visibility reuses the drip-pacing field instead of adding a parallel one.** `Module.unlockMode` gains a fourth value, `hidden`, alongside the existing `immediate` / `after_previous` / `after_days` timing modes. `hidden` means the module is invisible to every learner regardless of enrollment date, until a creator manually switches it to something else — a readiness gate, not a schedule. The other three modes answer a different question (once a module IS part of the live program, when does an enrolled learner reach it) and are Scheduling & Drip (ADR-009) territory to act on later; Program Builder only captures the rule.
+- **`Program.coverStyle` (`gradient`/`geometric`)** is chosen once per program; every Module then derives a deterministic look from its own position/index (no image bytes, no per-module creator effort, no new asset pipeline).
+**Consequences**
+*   _Positive:_ Meaningfully less to build than real content versioning — no snapshot table, no diff engine, no rollback UI — while still giving the creator the "you have unpublished changes" affordance the design calls for. Reusing `unlockMode` for visibility avoids a second parallel status field and keeps the module-settings UI (which already has this exact pill-selector surface) unchanged in shape. Module covers cost nothing to generate or store.
+*   _Negative:_ No true content freeze means a creator mid-edit on a typo fix in a live program is visible to learners instantly — there is no "review before it goes out" safety net for small edits the way there would be with real versioning. If that becomes a real complaint, it's a genuine breaking change to revisit (adding a snapshot layer after the fact means migrating existing `published`/`draft` semantics, not just adding a column).
+*   _Neutral:_ `EnrollmentService.invite()` does not yet check `Program.status` — a program can currently be invited into regardless of draft/published state, since that module was built (Sprint 2) before this ADR existed. Tracked as a specific, scoped follow-up rather than done silently as part of this ADR, since it touches already-shipped, already-reviewed Enrollment code.
+
+* * *
+
 ## 12\. Open technical questions (remaining)
 
 *   **LLM provider selection** — which model, and cost ceiling per creator/month. Needs a decision but doesn't block v1 build (AI service seam makes this swappable).
@@ -371,5 +391,6 @@ Reply → Channel Service → InboundEvent (DONE / question / quiz answer) → C
 *   Every new PR touching a tenant-scoped table must include `organisation_id` — enforced via repository base class, not code review memory (ADR-008).
 *   No direct WhatsApp/Meta API calls outside the Messaging module. No direct LLM API calls outside the AI module. These are the two boundaries that must not leak (§1, ADR-002, ADR-011).
 *   `MessageTemplate` and `Signal` are new entities not in the original domain sketch — model these alongside Program/Enrollment/Progress from the start (§3, ADR-005, ADR-010).
+*   `Program.status`/`publishedAt` and `Module.unlockMode` are new (ADR-014) — publishing does NOT freeze content, so don't build a snapshot/versioning layer for it; the whole "unpublished changes" check is a timestamp comparison. `EnrollmentService.invite()` does not yet gate on `Program.status === 'published'` — a known, tracked gap, not an oversight.
 *   Use `pnpm`, not `npm`/`yarn`, for all installs — the strict dependency resolution is load-bearing for the workspace boundary, not a style preference (ADR-013).
 *   Cross-reference the `Product Brief` for scope, the MVP cut line (§13), and the "Needs you" exception-queue behaviour the triage engine powers.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useIsomorphicLayoutEffect } from '../lib/useIsomorphicLayoutEffect';
 
@@ -12,6 +12,13 @@ export interface TabItem {
 export interface TabsProps {
   tabs: TabItem[];
   defaultValue?: string;
+  /**
+   * Controlled active tab. When provided, an external change to `value`
+   * (e.g. selecting a program elsewhere navigates here) re-syncs the active
+   * tab — unlike `defaultValue`, which only seeds the initial state. Omit for
+   * the original uncontrolled behaviour.
+   */
+  value?: string;
   onChange?: (value: string) => void;
   /** pill (default), underline, or boxed — the animated indicator adapts to each */
   variant?: 'pill' | 'underline' | 'boxed';
@@ -82,12 +89,16 @@ const VARIANTS: Record<NonNullable<TabsProps['variant']>, VariantConfig> = {
   },
 };
 
-export function Tabs({ tabs, defaultValue, onChange, variant = 'pill', style }: TabsProps) {
-  const [active, setActive] = useState<string | undefined>(defaultValue ?? tabs[0]?.value);
+export function Tabs({ tabs, defaultValue, value, onChange, variant = 'pill', style }: TabsProps) {
+  const [active, setActive] = useState<string | undefined>(value ?? defaultValue ?? tabs[0]?.value);
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [indicator, setIndicator] = useState({ left: 0, width: 0, ready: false });
   const cfg = VARIANTS[variant] ?? VARIANTS.pill;
+
+  useEffect(() => {
+    if (value !== undefined) setActive(value);
+  }, [value]);
 
   useIsomorphicLayoutEffect(() => {
     const el = active ? itemRefs.current[active] : null;

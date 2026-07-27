@@ -1,0 +1,21 @@
+# Build output / deps / generated
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+.turbo
+**/.turbo
+coverage
+**/coverage
+storybook-static
+**/storybook-static
+pnpm-lock.yaml
+**/*.min.*
+
+# Prisma migration SQL (generated; keep verbatim)
+apps/api/prisma/migrations
+
+# Vendored design reference — source-of-truth copies, don't reformat
+packages/docs/design-ref

@@ -8,6 +8,8 @@
  * query against a tenant-scoped model.
  */
 
+import { CrossTenantWriteError } from './org-context';
+
 /**
  * The models that carry `organisation_id` and MUST be org-scoped. Mirrors the
  * tenant-scoped tables in prisma/schema.prisma. `Organisation` is deliberately
@@ -60,13 +62,27 @@ function scopeWhere(args: AnyArgs, organisationId: string): Record<string, unkno
   return { ...args, where: { ...where, organisationId } };
 }
 
+/**
+ * Stamp the context `organisationId` onto create data. The context is stamped
+ * LAST so it always wins over any caller-supplied value — a create must never
+ * be able to override the tenant it writes into. A caller supplying the
+ * *matching* org is allowed (idempotent); supplying a *different* org throws
+ * `CrossTenantWriteError` (a cross-tenant write is a bug or an attack, never
+ * silently honoured — ADR-008). Handles both the single-object and the
+ * `createMany` array forms.
+ */
 function stampData(data: unknown, organisationId: string): unknown {
+  const stampRow = (row: Record<string, unknown> | undefined): Record<string, unknown> => {
+    const supplied = row?.organisationId;
+    if (supplied != null && supplied !== organisationId) {
+      throw new CrossTenantWriteError(String(supplied), organisationId);
+    }
+    return { ...row, organisationId };
+  };
   if (Array.isArray(data)) {
-    return data.map((row) => ({ organisationId, ...(row as Record<string, unknown>) }));
+    return data.map((row) => stampRow(row as Record<string, unknown>));
   }
-  // Caller-supplied organisationId is preserved if present, but the extension
-  // never lets it differ from context — see prisma.service.ts guard.
-  return { organisationId, ...(data as Record<string, unknown>) };
+  return stampRow(data as Record<string, unknown> | undefined);
 }
 
 /**

@@ -1,5 +1,6 @@
 > **Source:** ClickUp — Sprints › Sprint 1 ([link](https://app.clickup.com/t/86capbyce))
 > **Synced:** 2026-07-11 — manual snapshot, not live. Re-sync by asking an agent to re-run this process.
+> **Status re-assessed against the codebase:** 2026-07-24 — the 7 Identity & Multi-tenancy stories are verified shipped (features 0008 / 0009 / 0010). Still a manual snapshot, not a live ClickUp sync.
 
 ---
 
@@ -84,14 +85,14 @@ Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-componen
 **Story:** As a new user (creator or learner), I want to enter my phone number and receive an OTP so that I can verify my identity without a password.
 
 **Acceptance Criteria**
-- [ ] User enters phone number in E.164-compatible input
-- [ ] OTP sent via SMS gateway (fallback: WhatsApp OTP delivery per ADR-001 negative)
-- [ ] Rate-limited to prevent OTP abuse
-- [ ] Clear error state if number is invalid or send fails
+- [x] User enters phone number in E.164-compatible input — `PhoneInput` + `phone.service.ts` normalize to E.164 (`DEFAULT_PHONE_REGION`).
+- [x] OTP sent via SMS gateway — real Vynfy SMS via `SmsOtpDeliveryService` + `providers/vynfy-sms.provider.ts` (feature 0009). **WhatsApp OTP fallback (ADR-001 negative) deferred** → 0009 §8; SMS satisfies this AC.
+- [x] Rate-limited to prevent OTP abuse — per-phone cooldown + rolling issuance cap (`otp.service.ts`), per-IP `ThrottlerGuard`, and a global `sms-budget.service.ts` breaker.
+- [x] Clear error state if number is invalid or send fails — `AuthFlow` inline errors + `LoginClient` banners (offline / rate-limited / send-failed).
 
 **Notes:** Phone number is the identity anchor (ADR-001, locked). Points: 5
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8ttg](https://app.clickup.com/t/86cap8ttg)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8ttg](https://app.clickup.com/t/86cap8ttg)
 
 ---
 
@@ -100,14 +101,14 @@ Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-componen
 **Story:** As a user, I want to submit the OTP I received so that I'm logged in (or a new account is created if this is my first time).
 
 **Acceptance Criteria**
-- [ ] Correct OTP creates a new user record if phone number is unrecognized
-- [ ] Correct OTP logs in an existing user
-- [ ] Incorrect OTP shows a clear error, allows retry within limit
-- [ ] Expired OTP prompts a resend option
+- [x] Correct OTP creates a new user record if phone number is unrecognized — `auth.service.verifyOtp` `account.upsert` (create branch).
+- [x] Correct OTP logs in an existing user — same `upsert` (fetch branch); signup==login is one flow.
+- [x] Incorrect OTP shows a clear error, allows retry within limit — `otp.service.verify` attempt cap (`OTP_MAX_ATTEMPTS`) → `otp_invalid` / `otp_locked`; `AuthFlow` retry.
+- [x] Expired OTP prompts a resend option — `otp_expired` + resend with cooldown countdown in `AuthFlow`.
 
 **Notes:** Points: 5
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8tu8](https://app.clickup.com/t/86cap8tu8)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8tu8](https://app.clickup.com/t/86cap8tu8)
 
 ---
 
@@ -116,14 +117,14 @@ Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-componen
 **Story:** As a returning user, I want to stay logged in across sessions without re-entering an OTP every time, so that login friction is low on repeat visits.
 
 **Acceptance Criteria**
-- [ ] Access token short-lived, refresh token long-lived, issued together post-verification
-- [ ] Silent refresh renews access token without user action
-- [ ] Refresh token revocation supported (logout, security event)
-- [ ] Expired refresh token forces a new OTP flow
+- [x] Access token short-lived, refresh token long-lived, issued together post-verification — 15 min access / 30 day refresh via `token.service.ts` `issuePair`.
+- [x] Silent refresh renews access token without user action — middleware proactive refresh + `authFetch` on 401 (`bff.ts`); wired in 0010.
+- [x] Refresh token revocation supported (logout, security event) — `revokeByToken` / `revokeFamily`; rotating tokens with reuse-detection (`rotateRefreshToken`).
+- [x] Expired refresh token forces a new OTP flow — **evolved in 0010:** an expired/idle refresh on a *trusted device* → PIN step-up (no SMS); full OTP only when the device is untrusted/new.
 
 **Notes:** Points: 8
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8tv5](https://app.clickup.com/t/86cap8tv5)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8tv5](https://app.clickup.com/t/86cap8tv5)
 
 ---
 
@@ -132,13 +133,13 @@ Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-componen
 **Story:** As a user with both a creator and learner account context (e.g. mentor who is also enrolled somewhere), I want session handling to work correctly across both PWAs, so that logging out of one doesn't unexpectedly break the other if I don't want it to.
 
 **Acceptance Criteria**
-- [ ] Logout is scoped per app by default
-- [ ] Token storage approach documented for both PWAs (no localStorage misuse — secure storage only)
-- [ ] Auth state correctly reflected in each app's UI
+- [x] Logout is scoped per app by default — creator/learner are separate origins with separate refresh-token families; `revokeByToken` burns only that app's family.
+- [x] Token storage approach documented for both PWAs (no localStorage misuse — secure storage only) — all tokens in httpOnly `__Host-` cookies set by the BFF, never exposed to client JS (env policy: no `NEXT_PUBLIC_`).
+- [x] Auth state correctly reflected in each app's UI — middleware + server `/login` resolver + `/auth/me`.
 
-**Notes:** Points: 3
+**Notes:** Points: 3. **0010 change:** logout now keeps device trust (→ PIN on next entry, no SMS); `device/forget` ("Not you?") is the full-untrust path (→ OTP).
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8twm](https://app.clickup.com/t/86cap8twm)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8twm](https://app.clickup.com/t/86cap8twm)
 
 ---
 
@@ -147,13 +148,13 @@ Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-componen
 **Story:** As a new creator, I want an Organisation to be created automatically when I sign up, so that everything I build is scoped to my org from the start.
 
 **Acceptance Criteria**
-- [ ] Organisation record created on first creator signup
-- [ ] organisation_id generated and available for all subsequent writes
-- [ ] One creator can belong to (and switch between) multiple orgs — confirm this is in/out of v1 scope with product before building
+- [x] Organisation record created on first creator signup — `auth.service.onboard` bootstraps Organisation + owner Mentor + Membership in one transaction.
+- [x] organisation_id generated and available for all subsequent writes — `org` claim in the access token; `runWithOrgContext` stamps it on all tenant writes.
+- [x] One creator can belong to (and switch between) multiple orgs — **confirmed deferred from v1** (schema supports it; org-switch UI/endpoint parked per 0008 follow-ons). Decision made → AC addressed.
 
 **Notes:** Points: 5
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8txw](https://app.clickup.com/t/86cap8txw)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8txw](https://app.clickup.com/t/86cap8txw)
 
 ---
 
@@ -162,13 +163,13 @@ Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-componen
 **Story:** As an engineer, I want organisation_id scoping enforced automatically at the query/repository layer, so that a missed manual filter can never cause a cross-tenant data leak.
 
 **Acceptance Criteria**
-- [ ] Prisma middleware or repository base class injects org filter on all tenant-scoped table queries
-- [ ] Attempting to query without org context throws/fails loudly, not silently
-- [ ] Documented pattern in CONTRIBUTING.md / engineering docs (repo /docs)
+- [x] Prisma middleware or repository base class injects org filter on all tenant-scoped table queries — `apps/api/src/prisma/org-scope.ts` client extension (stamps `organisationId` on creates; injects into reads/writes).
+- [x] Attempting to query without org context throws/fails loudly, not silently — `MissingOrgContextError`; cross-tenant writes throw `CrossTenantWriteError`.
+- [x] Documented pattern in CONTRIBUTING.md / engineering docs (repo /docs) — `CONTRIBUTING.md` rule 2 ("Every tenant-scoped table carries `organisation_id` — enforced, not remembered").
 
 **Notes:** ADR-008. This is the epic's core deliverable. Points: 8
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8tyf](https://app.clickup.com/t/86cap8tyf)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8tyf](https://app.clickup.com/t/86cap8tyf)
 
 ---
 
@@ -183,7 +184,7 @@ Points: 8 — see `packages/docs/features/0005-design-system-tokens-and-componen
 
 **Notes:** ADR-008 negative-case coverage. Points: 5. Test coverage landed with the Sprint-0 close (see `0003`/`0004`); the CI gate wiring landed with `0006`.
 
-**Status:** backlog · **Priority:** none · **ClickUp:** [86cap8tz8](https://app.clickup.com/t/86cap8tz8)
+**Status:** shipped · **Priority:** none · **ClickUp:** [86cap8tz8](https://app.clickup.com/t/86cap8tz8)
 
 ---
 
@@ -199,7 +200,7 @@ Linked from all four sprints (1–4), not specific to Sprint 1 — included here
 
 This keeps the Sprints folder as a live view of what's in-flight/next, while Product Documentations accumulates the actual record of what shipped and why — useful for onboarding, and for reconstructing "why did we build it that way" later.
 
-**Current state (2026-07-11):** Sprints 1–4 are all open, nothing shipped yet, so nothing to convert yet. Applies going forward as each one closes out.
+**Current state (2026-07-24):** Sprint 1's ten delivery stories are all shipped (verified against the codebase). The Sprint 1 **release-increment doc** is written → [`product/sprint-1-release-increment.md`](../product/sprint-1-release-increment.md). Closing the ClickUp sprint task is pending the pre-release checklist in that doc (§5: commit, migrate, secrets). Sprints 2–4 remain open.
 
 **Status:** backlog · **Priority:** normal · **ClickUp:** [86capbyng](https://app.clickup.com/t/86capbyng)
 

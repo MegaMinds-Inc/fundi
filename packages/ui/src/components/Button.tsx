@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import { Spinner } from './Spinner';
+import { usePrefersReducedMotion } from '../lib/use-reduced-motion';
 
 export interface ButtonProps {
   /** Button label / content — omit when iconOnly is true */
@@ -12,6 +14,11 @@ export interface ButtonProps {
   size?: 'sm' | 'md' | 'lg';
   /** Disabled state */
   disabled?: boolean;
+  /**
+   * Async in-flight state (plan B.4/D7): swaps the label for a spinner, blocks
+   * clicks, and preserves the button's width so the layout doesn't jump.
+   */
+  loading?: boolean;
   /** Icon element — the whole button content when iconOnly is true, a leading icon otherwise */
   icon?: ReactNode;
   /** Renders a circular icon-only button (no label) — requires aria-label */
@@ -74,6 +81,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   disabled = false,
+  loading = false,
   icon = null,
   iconOnly = false,
   'aria-label': ariaLabel,
@@ -83,23 +91,30 @@ export function Button({
 }: ButtonProps) {
   const [hover, setHover] = useState(false);
   const [pressed, setPressed] = useState(false);
+  const reduced = usePrefersReducedMotion();
+  // A loading button behaves as disabled (no clicks) but keeps full opacity so
+  // it reads as "working", not "unavailable".
+  const inert = disabled || loading;
   const sizeStyle = SIZE_STYLES[size] ?? SIZE_STYLES.md;
-  const vStyle = variantStyle(variant, hover, disabled);
+  const vStyle = variantStyle(variant, hover, inert);
   const filled = variant === 'primary' || variant === 'danger';
   const isGhost = variant === 'ghost';
   const dim = ICON_ONLY_SIZE[size] ?? ICON_ONLY_SIZE.md;
+  // Spinner tracks the label colour so it's visible on every variant.
+  const spinnerSize = size === 'lg' ? 18 : size === 'sm' ? 14 : 16;
 
   return (
     <button
       type={type}
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
+      onClick={inert ? undefined : onClick}
+      disabled={inert}
+      aria-busy={loading || undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => {
         setHover(false);
         setPressed(false);
       }}
-      onMouseDown={() => !disabled && setPressed(true)}
+      onMouseDown={() => !inert && setPressed(true)}
       onMouseUp={() => setPressed(false)}
       aria-label={iconOnly ? ariaLabel : undefined}
       style={{
@@ -114,18 +129,22 @@ export function Button({
         fontFamily: 'var(--font-display)',
         fontWeight: 700,
         letterSpacing: '-0.01em',
-        cursor: disabled ? 'not-allowed' : 'pointer',
+        cursor: loading ? 'progress' : disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
-        boxShadow: glow(variant, hover, disabled),
-        transform: disabled
+        boxShadow: glow(variant, hover, inert),
+        // prefers-reduced-motion (plan B.7): drop the press-scale / lift, keep static.
+        transform: reduced
           ? 'none'
-          : pressed
-            ? 'scale(0.96)'
-            : hover
-              ? 'translateY(-1px)'
-              : 'translateY(0)',
-        transition:
-          'transform 160ms cubic-bezier(.4,0,.2,1), box-shadow 220ms ease, background 160ms ease',
+          : inert
+            ? 'none'
+            : pressed
+              ? 'scale(0.96)'
+              : hover
+                ? 'translateY(-1px)'
+                : 'translateY(0)',
+        transition: reduced
+          ? 'none'
+          : 'transform 160ms cubic-bezier(.4,0,.2,1), box-shadow 220ms ease, background 160ms ease',
         ...sizeStyle,
         ...vStyle,
         ...(iconOnly ? { width: dim, height: dim, padding: 0 } : {}),
@@ -151,8 +170,8 @@ export function Button({
               width: '55%',
               background:
                 'linear-gradient(115deg, transparent, rgba(255,255,255,0.4), transparent)',
-              transform: hover && !disabled ? 'translateX(260%)' : 'translateX(-160%)',
-              transition: 'transform 700ms cubic-bezier(.22,1,.36,1)',
+              transform: hover && !inert && !reduced ? 'translateX(260%)' : 'translateX(-160%)',
+              transition: reduced ? 'none' : 'transform 700ms cubic-bezier(.22,1,.36,1)',
             }}
           />
         </span>
@@ -167,9 +186,24 @@ export function Button({
             width: hover ? '100%' : '0%',
             background: 'currentColor',
             borderRadius: 'var(--radius-pill)',
-            transition: 'width 260ms cubic-bezier(.4,0,.2,1)',
+            transition: reduced ? 'none' : 'width 260ms cubic-bezier(.4,0,.2,1)',
           }}
         />
+      )}
+      {loading && (
+        // Centred spinner overlaid on the (hidden) label so width is preserved.
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Spinner size={spinnerSize} color="currentColor" />
+        </span>
       )}
       <span
         style={{
@@ -177,8 +211,10 @@ export function Button({
           display: 'inline-flex',
           alignItems: 'center',
           gap: iconOnly ? 0 : 8,
-          transform: isGhost && hover ? 'translateX(2px)' : 'translateX(0)',
-          transition: 'transform 220ms cubic-bezier(.4,0,.2,1)',
+          // Hidden (not removed) while loading so the button keeps its width.
+          visibility: loading ? 'hidden' : 'visible',
+          transform: isGhost && hover && !reduced ? 'translateX(2px)' : 'translateX(0)',
+          transition: reduced ? 'none' : 'transform 220ms cubic-bezier(.4,0,.2,1)',
         }}
       >
         {icon}

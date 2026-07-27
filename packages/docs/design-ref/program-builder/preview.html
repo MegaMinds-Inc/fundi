@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Program preview — learner view</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel" src="./ModuleCover.jsx"></script>
+<script type="text/babel" src="./PublishBar.jsx"></script>
+<style>body{margin:0;background:#05100a}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+function App() {
+  const [program, setProgram] = React.useState(undefined);
+  const [isDraft, setIsDraft] = React.useState(false);
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem('fundi_program_preview');
+      setProgram(raw ? JSON.parse(raw) : null);
+      setIsDraft(JSON.parse(localStorage.getItem('fundi_program_preview_is_draft') || 'false'));
+    } catch (e) { setProgram(null); }
+  }, []);
+
+  if (program === undefined) return null;
+  if (!program) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-body)', color: 'var(--color-text-faint)', fontSize: 13, textAlign: 'center', padding: 24 }}>
+        No preview data found — open Preview from the Program Builder.
+      </div>
+    );
+  }
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg-canvas)' }}>
+      {isDraft && (
+        <div style={{ background: 'var(--color-status-warn-bg)', color: 'var(--color-status-warn-text)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 12, padding: '10px 20px', textAlign: 'center' }}>
+          Draft preview — learners can't see this yet. Publish to make it live.
+        </div>
+      )}
+      <window.LearnerPreview program={program} />
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

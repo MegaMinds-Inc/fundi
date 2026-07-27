@@ -2,10 +2,16 @@
 
 import { useRef, useState } from 'react';
 import type { ChangeEvent, ClipboardEvent, CSSProperties, KeyboardEvent } from 'react';
+import { usePrefersReducedMotion } from '../lib/use-reduced-motion';
 
 export interface OtpInputProps {
   /** Number of digit boxes. Default 6. */
   length?: number;
+  /**
+   * Accessible label for the box group — screen readers read the boxes as one
+   * field, not N. Default 'One-time code'.
+   */
+  groupLabel?: string;
   /** Current value — a string of up to `length` digits. Controlled. */
   value: string;
   onChange: (value: string) => void;
@@ -18,6 +24,18 @@ export interface OtpInputProps {
   autoFocus?: boolean;
   /** Base name for the boxes — each box is named `${name}-${i}`. */
   name?: string;
+  /**
+   * Mask each box as a password dot (`type="password"`) while keeping the
+   * numeric keypad (`inputMode="numeric"`). Use for a chosen secret like a PIN;
+   * OTP entry (visible, temporary) leaves this false. Default false.
+   */
+  mask?: boolean;
+  /**
+   * `autocomplete` value applied to the first box (the OS autofill anchor);
+   * remaining boxes stay `off`. Default `'one-time-code'` for OTP. A chosen PIN
+   * must pass `'off'` — it is a secret, never an SMS autofill target.
+   */
+  autoComplete?: string;
 }
 
 const BOX_STYLE: CSSProperties = {
@@ -44,6 +62,7 @@ const BOX_STYLE: CSSProperties = {
  */
 export function OtpInput({
   length = 6,
+  groupLabel = 'One-time code',
   value,
   onChange,
   onComplete,
@@ -51,9 +70,12 @@ export function OtpInput({
   disabled = false,
   autoFocus = false,
   name = 'otp',
+  mask = false,
+  autoComplete = 'one-time-code',
 }: OtpInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const [focused, setFocused] = useState<number | null>(null);
+  const reduced = usePrefersReducedMotion();
   const digits = value.split('').slice(0, length);
 
   function focusBox(i: number) {
@@ -119,7 +141,7 @@ export function OtpInput({
   }
 
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div role="group" aria-label={groupLabel} style={{ display: 'flex', gap: 8 }}>
       {Array.from({ length }).map((_, i) => (
         <input
           // Fixed-length set whose order never changes — a stable index key is correct here.
@@ -128,9 +150,9 @@ export function OtpInput({
             refs.current[i] = el;
           }}
           name={`${name}-${i}`}
-          type="text"
+          type={mask ? 'password' : 'text'}
           inputMode="numeric"
-          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          autoComplete={i === 0 ? autoComplete : 'off'}
           maxLength={1}
           disabled={disabled}
           autoFocus={autoFocus && i === 0}
@@ -146,6 +168,8 @@ export function OtpInput({
           onBlur={() => setFocused((f) => (f === i ? null : f))}
           style={{
             ...BOX_STYLE,
+            // prefers-reduced-motion (plan B.7): drop the focus-ring transition.
+            transition: reduced ? 'none' : BOX_STYLE.transition,
             opacity: disabled ? 0.5 : 1,
             boxShadow: error
               ? 'inset 0 0 0 1.5px var(--color-status-danger-text)'

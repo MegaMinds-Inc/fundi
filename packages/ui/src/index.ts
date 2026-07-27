@@ -28,6 +28,9 @@ export type { DrawerProps } from './components/Drawer';
 export { EmptyState } from './components/EmptyState';
 export type { EmptyStateProps } from './components/EmptyState';
 
+export { OfflineBanner } from './components/OfflineBanner';
+export type { OfflineBannerProps } from './components/OfflineBanner';
+
 // Shared primitives
 export { Spinner } from './components/Spinner';
 export type { SpinnerProps } from './components/Spinner';
@@ -55,6 +58,8 @@ export { initials } from './lib/initials';
 export { useBreakpoint, BREAKPOINTS } from './lib/use-breakpoint';
 export type { Breakpoint } from './lib/use-breakpoint';
 
+export { usePrefersReducedMotion } from './lib/use-reduced-motion';
+
 // Modules — reusable feature compositions (see ADR-ENG-0001)
 export { MessageComposer } from './modules/MessageComposer';
 export type { MessageComposerProps } from './modules/MessageComposer';
@@ -62,8 +67,61 @@ export type { MessageComposerProps } from './modules/MessageComposer';
 export { OtpInput } from './modules/OtpInput';
 export type { OtpInputProps } from './modules/OtpInput';
 
+export { PinInput } from './modules/PinInput';
+export type { PinInputProps } from './modules/PinInput';
+
 export { AuthFlow } from './modules/AuthFlow';
 export type { AuthFlowProps } from './modules/AuthFlow';
+
+// Creator home + program create (feature 0012)
+export { ModuleCover } from './modules/ModuleCover';
+export type { ModuleCoverProps, CoverStyle } from './modules/ModuleCover';
+
+export { ProgramSetup, SHAPES, VISIBILITIES } from './modules/ProgramSetup';
+export type {
+  ProgramSetupProps,
+  ProgramSetupValue,
+  ProgramShapeOption,
+  ProgramVisibilityOption,
+} from './modules/ProgramSetup';
+
+export { ProgramsHome } from './modules/ProgramsHome';
+export type { ProgramsHomeProps, ProgramCardData } from './modules/ProgramsHome';
+
+// Program builder stage-2 (feature 0012 slice 2)
+export { ModuleTree } from './modules/ModuleTree';
+export type {
+  ModuleTreeProps,
+  ModuleTreeModule,
+  ModuleTreeLesson,
+  ModulePatch,
+  LessonType,
+  UnlockMode,
+} from './modules/ModuleTree';
+
+export { LessonEditor } from './modules/LessonEditor';
+export type { LessonEditorProps, EditableLesson } from './modules/LessonEditor';
+
+export { LessonViewer } from './modules/LessonViewer';
+export type {
+  LessonViewerProps,
+  LessonViewerLesson,
+  LessonViewerType,
+} from './modules/LessonViewer';
+
+// Program builder stage-3 (feature 0012 slice 3) — publish + learner preview
+export { PublishBar } from './modules/PublishBar';
+export type { PublishBarProps, PublishBarProgram, ProgramStatus } from './modules/PublishBar';
+
+export { LearnerPreview } from './modules/LearnerPreview';
+export type {
+  LearnerPreviewProps,
+  LearnerPreviewProgram,
+  LearnerPreviewModule,
+} from './modules/LearnerPreview';
+
+export { PhoneInput, DEFAULT_PHONE_REGION, DEFAULT_DIAL_CODE } from './modules/PhoneInput';
+export type { PhoneInputProps } from './modules/PhoneInput';
 
 // Creator triage queue ("Needs You")
 export { SignalBadge } from './modules/SignalBadge';

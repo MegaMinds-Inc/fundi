@@ -1,0 +1,39 @@
+import { NextResponse } from 'next/server';
+import { APP, postPublic, setAuthCookies, setDeviceCookie, tokensFrom } from '../../../lib/bff';
+
+// POST /api/auth/verify — proxy to the API's OTP verify (plan A.5 + 0010 §6).
+// A learner authenticates into an existing membership (learners are enrolled by
+// a creator, never self-serve — plan A.6), so there is no onboarding branch. On
+// success the API returns a token pair, the enrollment `deviceSecret` (trusted-
+// device trust for this app), and `needsPinSetup`. We set the httpOnly cookies —
+// access + refresh AND the device cookie — and return only the routing signal;
+// the tokens and the device secret never ride the response body.
+export async function POST(req: Request): Promise<NextResponse> {
+  const body = (await req.json().catch(() => null)) as { phone?: unknown; code?: unknown } | null;
+  if (typeof body?.phone !== 'string' || typeof body?.code !== 'string') {
+    return NextResponse.json({ error: 'bad_request' }, { status: 400 });
+  }
+
+  const res = await postPublic('/auth/otp/verify', {
+    phone: body.phone,
+    code: body.code,
+    app: APP,
+  });
+  if (!res) return NextResponse.json({ error: 'server_unreachable' }, { status: 503 });
+  if (res.status >= 500) return NextResponse.json({ error: 'server_error' }, { status: 502 });
+  if (res.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+  if (!res.ok) {
+    // Wrong / expired / locked code — a form-level retry, not a network failure.
+    return NextResponse.json({ error: 'invalid_code' }, { status: 400 });
+  }
+
+  const data = (await res.json().catch(() => null)) as {
+    needsPinSetup?: boolean;
+    deviceSecret?: string;
+  } | null;
+  const pair = tokensFrom(data);
+  if (pair) await setAuthCookies(pair);
+  if (typeof data?.deviceSecret === 'string') await setDeviceCookie(data.deviceSecret);
+
+  return NextResponse.json({ needsPinSetup: !!data?.needsPinSetup });
+}

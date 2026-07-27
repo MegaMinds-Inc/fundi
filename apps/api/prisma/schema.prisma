@@ -43,6 +43,33 @@ enum ProgramVisibility {
   private
 }
 
+// Program Builder redesign (ADR-013). `published` is purely a discoverability
+// / enrollment gate — publishing does NOT freeze content; editing a published
+// program is immediately live. `updatedAt` vs `publishedAt` (both already
+// present) is how the builder shows "unpublished changes" without a snapshot.
+enum ProgramStatus {
+  draft
+  published
+}
+
+// Generative module-cover treatment (ADR-013) — chosen once per Program;
+// every Module then gets a deterministic look from its own position, zero
+// image bytes, zero per-module creator effort.
+enum ProgramCoverStyle {
+  gradient
+  geometric
+}
+
+// Per-module visibility + drip pacing, one mechanism (ADR-013). `hidden` is a
+// manual, creator-controlled "not ready yet" gate — distinct from the
+// scheduling modes, which only govern timing for an already-visible module.
+enum ModuleUnlockMode {
+  hidden
+  immediate
+  after_previous
+  after_days
+}
+
 enum LessonType {
   text
   video
@@ -108,6 +135,14 @@ enum DripJobStatus {
   failed
 }
 
+// Which PWA a session/refresh-token belongs to. Creator and learner are
+// separate origins with separate cookie jars; the `app` claim + column keep a
+// creator token from minting a learner pair and vice-versa (US-004).
+enum AppClient {
+  creator
+  learner
+}
+
 // ---------------------------------------------------------------------------
 // Tenant root — NOT org-scoped (it IS the organisation)
 // ---------------------------------------------------------------------------
@@ -132,8 +167,122 @@ model Organisation {
   messages         Message[]
   messageTemplates MessageTemplate[]
   dripJobs         DripJob[]
+  memberships      Membership[]
 
   @@map("organisations")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & authz — NOT org-scoped (ADR-008 §A.2)
+//
+// These four tables live OUTSIDE the tenant boundary on purpose: they must be
+// readable BEFORE an org context exists (at login, there is no org yet). They
+// therefore must NOT be added to TENANT_SCOPED_MODELS and must NOT carry
+// organisation_id — scoping them would deadlock login. The completeness test in
+// org-scope.test.ts guards that invariant in both directions.
+// ---------------------------------------------------------------------------
+
+// Global identity — the auth principal, keyed by canonical E.164 phone. Unlike
+// Mentor/Learner (which are per-org rows), an Account is one human across all
+// orgs; Membership bridges it into each org.
+model Account {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  // PIN step-up credential (feature 0010 §5). scrypt hash over `pinSalt`,
+  // additionally HMAC-peppered with a key held outside the DB (PIN_PEPPER).
+  // Per-Account (shared creator+learner). Nullable: existing accounts have no
+  // PIN — a null `pinHash` means `needsPinSetup`.
+  pinHash   String?  @map("pin_hash")
+  pinSalt   String?  @map("pin_salt")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  memberships    Membership[]
+  trustedDevices TrustedDevice[]
+
+  @@map("accounts")
+}
+
+// Bridges an Account into an Organisation as a given role, optionally pinned to
+// the org's Mentor or Learner row. Readable pre-context so login can resolve
+// "which orgs, as what, as which row" before binding an org.
+model Membership {
+  accountId      String     @map("account_id")
+  organisationId String     @map("organisation_id")
+  role           MentorRole @default(mentor)
+  mentorId       String?    @unique @map("mentor_id")
+  learnerId      String?    @unique @map("learner_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  account      Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, organisationId])
+  @@index([accountId])
+  @@map("memberships")
+}
+
+// Pre-auth one-time-code challenge. The code is never stored in the clear:
+// `codeHash` is a scrypt hash over `salt`. `attempts` caps brute force;
+// `expiresAt`/`consumedAt` bound its lifetime and prevent replay.
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String    @map("code_hash")
+  salt       String
+  attempts   Int       @default(0)
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([phone, createdAt])
+  @@map("otp_challenges")
+}
+
+// Opaque refresh token, stored only as a SHA-256 hash. Rotation + reuse
+// detection: rows share a `familyId`; each use sets `replacedById` on the old
+// row and mints a new one, so replaying a rotated token reveals theft and the
+// whole family is revoked. `app` keeps creator/learner sessions separate.
+model RefreshToken {
+  id           String    @id @default(cuid())
+  accountId    String    @map("account_id")
+  familyId     String    @map("family_id")
+  tokenHash    String    @unique @map("token_hash")
+  app          AppClient
+  expiresAt    DateTime  @map("expires_at")
+  // Absolute-cap anchor for the family (feature 0010 §3): set at family birth
+  // and carried forward UNCHANGED on every rotation — never `now + TTL`, or the
+  // cap never trips. Nullable for backfill of live rows (code treats null as
+  // `createdAt + REFRESH_ABSOLUTE_TTL_SECONDS`, then tighten).
+  familyExpiresAt DateTime? @map("family_expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([accountId, app])
+  @@map("refresh_tokens")
+}
+
+// Enrolled-device credential (feature 0010 §5). A high-entropy random secret
+// lives in a `__Host-` httpOnly Secure SameSite=Strict cookie; only its
+// SHA-256 is stored here (mirrors RefreshToken.tokenHash — NOT the secret).
+// Presence + hash-match means "skip OTP, PIN is enough". Non-tenant-scoped
+// (pre-auth, like RefreshToken/OtpChallenge): must be readable before any org
+// context exists, so it carries no organisation_id and is NOT in
+// TENANT_SCOPED_MODELS. PIN lockout is tracked per-device here (§5, §7.5).
+model TrustedDevice {
+  id             String    @id @default(cuid())
+  accountId      String    @map("account_id")
+  app            AppClient
+  tokenHash      String    @unique @map("token_hash")
+  pinAttempts    Int       @default(0) @map("pin_attempts")
+  pinLockedUntil DateTime? @map("pin_locked_until")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, app])
+  @@map("trusted_devices")
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +316,19 @@ model Program {
   description    String?
   shape          ProgramShape
   visibility     ProgramVisibility @default(private)
+  status         ProgramStatus     @default(draft)
+  coverStyle     ProgramCoverStyle @default(gradient) @map("cover_style")
+  // Set on every (re-)publish. `status === published && updatedAt >
+  // publishedAt` is the whole "has unpublished changes" check — no content
+  // snapshot needed (ADR-013). NOT reset on unpublish; kept as "last time
+  // this was live" history.
+  publishedAt    DateTime?         @map("published_at")
   createdAt      DateTime          @default(now()) @map("created_at")
+  // NOTE: Prisma's `@updatedAt` only bumps when this row itself is written.
+  // The "unpublished changes" check needs this to reflect child Module/Lesson
+  // edits too — ProgramsService/EnrollmentService's module/lesson mutations
+  // must explicitly touch the parent Program's `updatedAt` as well (see the
+  // Program Builder technical design doc). Easy to get wrong; call it out.
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
@@ -181,13 +342,20 @@ model Program {
 }
 
 model Module {
-  id             String   @id @default(cuid())
-  organisationId String   @map("organisation_id")
-  programId      String   @map("program_id")
+  id             String           @id @default(cuid())
+  organisationId String           @map("organisation_id")
+  programId      String           @map("program_id")
   title          String
+  description    String?
   order          Int
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  // hidden | immediate | after_previous | after_days (ADR-013). `hidden`
+  // keeps a module fully invisible to learners regardless of enrollment date;
+  // the other three govern only WHEN an already-visible module unlocks.
+  unlockMode     ModuleUnlockMode @default(immediate) @map("unlock_mode")
+  // Only meaningful when unlockMode = after_days.
+  unlockDays     Int?             @map("unlock_days")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   program      Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
