@@ -294,77 +294,74 @@ export class AuthService {
   }
 
   /**
-   * `POST /auth/pin/reset` (§4.6/§12.6) — the phone-less end of the forgot-PIN
-   * flow: `pin/forgot` has already sent a reset OTP, and this call consumes that
-   * OTP AND sets the new PIN in ONE step, landing the user signed in. Gated on a
-   * valid device cookie (the same uniform `401 pin_rejected` as {@link
-   * stepUpWithPin} on any device/OTP miss — NO device/account/otp existence
-   * oracle). Only {@link PinService.setPin}'s `422 pin_invalid`/`weak_pin`
-   * propagates (a form error, not session death — exactly like `pin/set`).
+   * `POST /auth/pin/reset` (§4.6/§12.6) — the forgot-PIN reset, driven by the
+   * PHONE NUMBER (not the device cookie): the device may well be revoked — that
+   * is the whole reason the user is here — so the reset must not depend on it.
+   * The client enters phone → OTP → new PIN; this call consumes that OTP AND sets
+   * the new PIN in ONE step, then lands the user signed in on a freshly enrolled
+   * device.
    *
-   * 1. resolve the device (null → uniform 401); 2. resolve the account phone
-   * (missing → uniform 401); 3. `otp.verify` consumes the reset OTP — the
-   * phone-ownership proof, carrying the existing OTP attempt cap (any throw →
-   * uniform 401, no otp_invalid/otp_expired leak); 4. `pins.setPin` (422
-   * propagates as-is); 5. compromise hygiene — revoke ALL live refresh families
-   * for this account+app (no session to keep) plus the lapsed one; 6. mint a
-   * fresh pair on a NEW family + rotate the device secret. The PIN/OTP are never
-   * logged.
+   * The reset OTP is the sole phone-ownership proof. Any miss — a phone with no
+   * account, or a wrong/expired/locked code — collapses to the SAME uniform
+   * `401 pin_rejected` (no account/otp existence oracle). Only {@link
+   * PinService.setPin}'s `422 pin_invalid`/`weak_pin` propagates (a form error,
+   * not session death — exactly like `pin/set`).
+   *
+   * 1. normalize the phone; 2. `otp.verify` consumes the reset OTP (any throw →
+   * uniform 401, no otp_invalid/otp_expired leak); 3. resolve the account by
+   * phone (missing → uniform 401); 4. `pins.setPin` (422 propagates as-is);
+   * 5. compromise hygiene — revoke ALL live refresh families for this account+app
+   * (no session to keep); 6. mint a fresh pair on a NEW family AND enroll a fresh
+   * trusted device (the old one may be revoked). The PIN/OTP are never logged.
    */
   async resetPin(
-    deviceSecret: string,
-    app: AppClient,
+    phoneInput: string,
     otpCode: string,
     pin: string,
-    lapsedRefreshToken?: string,
+    app: AppClient,
   ): Promise<PinVerifyApiResult> {
-    const device = await this.trustedDevices.verifyCookie(deviceSecret, app);
-    if (!device) {
-      throw this.pinRejected();
-    }
-
-    const account = await this.prisma.client.account.findUnique({
-      where: { id: device.accountId },
-      select: { phone: true },
-    });
-    if (!account) {
-      throw this.pinRejected();
-    }
+    const phone = this.phone.normalize(phoneInput);
 
     // Consume the reset OTP — this IS the phone-ownership proof (it carries the
     // OTP attempt cap). A wrong/expired/locked code collapses to the SAME uniform
-    // 401 as a device miss (no otp_invalid-vs-otp_expired oracle here).
+    // 401 as any other miss (no otp_invalid-vs-otp_expired oracle here).
     try {
-      await this.otp.verify(account.phone, otpCode);
+      await this.otp.verify(phone, otpCode);
     } catch {
+      throw this.pinRejected();
+    }
+
+    // Resolve the account only AFTER the OTP is proven, and collapse a missing
+    // account into the same uniform 401 (no account-existence oracle).
+    const account = await this.prisma.client.account.findUnique({ where: { phone } });
+    if (!account) {
       throw this.pinRejected();
     }
 
     // Set the new PIN. Its 422 pin_invalid/weak_pin is a form error and MUST
     // propagate as-is (not collapse to pin_rejected), exactly like `pin/set`.
-    await this.pins.setPin(device.accountId, pin);
+    await this.pins.setPin(account.id, pin);
 
     // Compromise hygiene: a reset keeps NO existing session, so burn every live
-    // family for this account+app (passing no keep-token revokes ALL of them),
-    // plus the lapsed family the client still holds, before minting the new one.
-    await this.revokeOtherFamilies(device.accountId, app);
-    if (lapsedRefreshToken) {
-      await this.revokeFamilyByToken(lapsedRefreshToken);
-    }
+    // family for this account+app (passing no keep-token revokes ALL of them)
+    // before minting the new one.
+    await this.revokeOtherFamilies(account.id, app);
 
-    const memberships = await this.getMemberships(device.accountId);
+    const memberships = await this.getMemberships(account.id);
     const active = this.pickActiveMembership(memberships, app);
     const issued = await this.issuePair(
-      device.accountId,
+      account.id,
       app,
       active?.organisationId,
       active?.role ?? this.provisionalRole(app),
     );
 
-    // Rotate the device secret (§5/§7.2) so a copied cookie is caught next use.
-    const rotated = await this.trustedDevices.rotateSecret(device);
+    // Enroll a FRESH trusted device: the reset is device-independent (the old
+    // device may be revoked), so mint a new one and hand its secret back for the
+    // BFF to set as the `__Host-fundi_dt` cookie — the user lands fully trusted.
+    const device = await this.trustedDevices.issue(account.id, app);
 
-    return { ...issued, deviceSecret: rotated.secret, memberships };
+    return { ...issued, deviceSecret: device.secret, memberships };
   }
 
   /**
@@ -402,6 +399,30 @@ export class AuthService {
     if (device) {
       await this.trustedDevices.revokeById(device.id);
     }
+  }
+
+  /**
+   * `POST /auth/device/status` (§12.1) — the server-side truth the `/login`
+   * resolver needs to pick its entry screen. Resolves the device cookie to a
+   * LIVE `TrustedDevice` row (via {@link TrustedDeviceService.verifyCookie}, so a
+   * revoked/expired/wrong-app row counts as untrusted) and reports whether that
+   * device's account has a PIN. Enumeration-safe: an unresolvable device (or one
+   * whose account vanished) is a plain `{ trusted: false, hasPin: false }`, never
+   * an error that would leak device/account existence.
+   */
+  async deviceStatus(
+    deviceSecret: string,
+    app: AppClient,
+  ): Promise<{ trusted: boolean; hasPin: boolean }> {
+    const device = await this.trustedDevices.verifyCookie(deviceSecret, app);
+    if (!device) {
+      return { trusted: false, hasPin: false };
+    }
+    const account = await this.prisma.client.account.findUnique({
+      where: { id: device.accountId },
+      select: { pinHash: true },
+    });
+    return { trusted: true, hasPin: account?.pinHash != null };
   }
 
   /** `GET /auth/me` — principal + memberships + live PIN-setup state for the UI

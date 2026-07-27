@@ -44,6 +44,16 @@ export class EnrollmentService {
     name?: string,
   ): Promise<EnrollmentSummary> {
     const program = await this.programs.getProgramWithCohorts(programId);
+    // ADR-014: a program must be live before anyone can be invited into it.
+    // (Follow-up noted in TDD 0002 "known gaps" — this check predates the
+    // draft/publish gate, so it was previously possible to invite into a draft.)
+    // 409 matches this module's existing conflict style (already_enrolled).
+    if (program.status !== 'published') {
+      throw new ConflictException({
+        code: 'program_not_published',
+        message: 'Publish the program before inviting learners.',
+      });
+    }
     if (cohortId && !program.cohorts.some((c) => c.id === cohortId)) {
       throw new BadRequestException({
         code: 'invalid_cohort',

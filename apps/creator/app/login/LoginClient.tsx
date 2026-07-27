@@ -20,6 +20,15 @@ const wrapper = {
   margin: '0 auto',
 };
 
+// A backend outage should read as one, not as a generic failure: the BFF maps an
+// unreachable/down API to 503 and an API 5xx to 502. Surface both distinctly so
+// "backend down" never masquerades as "couldn't send your code".
+function outageBanner(status: number): string | null {
+  if (status === 503) return "Can't reach the server — is the backend running?";
+  if (status >= 500) return 'The server ran into a problem. Please try again in a moment.';
+  return null;
+}
+
 // Creator login client (feature 0010 §12.3–12.6). The server `/login` resolver
 // pins `initialStep`; this component wires every AuthFlow callback to the
 // same-origin BFF routes. The browser never sees the API URL or a token/secret.
@@ -41,6 +50,11 @@ export function LoginClient({ initialStep }: { initialStep: Step }) {
     } catch {
       setBanner("You're offline. Check your connection and try again.");
       throw new Error('otp_request_failed'); // keep AuthFlow on the phone step
+    }
+    const outage = outageBanner(res.status);
+    if (outage) {
+      setBanner(outage);
+      throw new Error('server_down'); // keep AuthFlow on the phone step
     }
     if (res.status === 429) {
       setBanner('Too many attempts. Please wait a moment before trying again.');
@@ -64,6 +78,11 @@ export function LoginClient({ initialStep }: { initialStep: Step }) {
       });
     } catch {
       setBanner("You're offline. Check your connection and try again.");
+      return false;
+    }
+    const outage = outageBanner(res.status);
+    if (outage) {
+      setBanner(outage);
       return false;
     }
     if (res.ok) {
@@ -98,6 +117,11 @@ export function LoginClient({ initialStep }: { initialStep: Step }) {
       setBanner("You're offline. Check your connection and try again.");
       return false;
     }
+    const outage = outageBanner(res.status);
+    if (outage) {
+      setBanner(outage);
+      return false;
+    }
     if (res.ok) return true;
     if (res.status === 401) return false; // wrong or locked — uniform
     if (res.status === 429) {
@@ -108,48 +132,26 @@ export function LoginClient({ initialStep }: { initialStep: Step }) {
     return false;
   }
 
-  // "Forgot PIN?" (§12.6) — server-driven OTP send (the client holds no phone).
-  // On success AuthFlow drives the in-place OTP(reset) → new-PIN sub-flow; a
-  // rejection keeps it on pin-entry so the banner is seen (no second SMS, no
-  // phone re-entry).
-  async function onForgotPin(): Promise<void> {
-    setBanner(null);
-    let res: Response;
-    try {
-      res = await fetch('/api/auth/pin/forgot', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-    } catch {
-      setBanner("You're offline. Check your connection and try again.");
-      throw new Error('forgot_pin_failed'); // keep AuthFlow on pin-entry
-    }
-    if (res.status === 429) {
-      setBanner('Too many attempts. Please wait a moment before requesting another code.');
-      throw new Error('rate_limited');
-    }
-    if (!res.ok) {
-      setBanner("We couldn't send your reset code just now. Please try again.");
-      throw new Error('forgot_pin_failed');
-    }
-    // 204 → SMS sent. AuthFlow now shows OTP(reset) → new-PIN.
-  }
-
-  // Forgot-PIN reset submit (§12.6): the SMS'd code + the new PIN in ONE call.
-  // On 200 → signed in. 422 → weak/invalid PIN (AuthFlow re-prompts). 401
-  // pin_rejected → the code was wrong/expired; ask for a new one.
-  async function onResetPin(otpCode: string, pin: string): Promise<boolean> {
+  // Forgot-PIN reset submit (§12.6): the phone-based reset — the entered phone,
+  // the SMS'd code, and the new PIN in ONE call. On 200 → signed in. 422 →
+  // weak/invalid PIN (AuthFlow re-prompts). 401 pin_rejected → the code was
+  // wrong/expired (or the phone has no account); ask for a new one.
+  async function onResetPin(phone: string, otpCode: string, pin: string): Promise<boolean> {
     setBanner(null);
     let res: Response;
     try {
       res = await fetch('/api/auth/pin/reset', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ otpCode, pin }),
+        body: JSON.stringify({ phone, otpCode, pin }),
       });
     } catch {
       setBanner("You're offline. Check your connection and try again.");
+      return false;
+    }
+    const outage = outageBanner(res.status);
+    if (outage) {
+      setBanner(outage);
       return false;
     }
     if (res.ok) return true;
@@ -204,7 +206,6 @@ export function LoginClient({ initialStep }: { initialStep: Step }) {
         onRequestOtp={onRequestOtp}
         onVerifyOtp={onVerifyOtp}
         onVerifyPin={onVerifyPin}
-        onForgotPin={onForgotPin}
         onResetPin={onResetPin}
         onForgetDevice={onForgetDevice}
         onSuccess={onAuthSuccess}

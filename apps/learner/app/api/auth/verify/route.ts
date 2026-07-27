@@ -19,7 +19,8 @@ export async function POST(req: Request): Promise<NextResponse> {
     code: body.code,
     app: APP,
   });
-  if (!res || res.status >= 500) return NextResponse.json({ error: 'upstream' }, { status: 502 });
+  if (!res) return NextResponse.json({ error: 'server_unreachable' }, { status: 503 });
+  if (res.status >= 500) return NextResponse.json({ error: 'server_error' }, { status: 502 });
   if (res.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   if (!res.ok) {
     // Wrong / expired / locked code — a form-level retry, not a network failure.

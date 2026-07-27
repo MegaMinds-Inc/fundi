@@ -21,7 +21,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   const res = await postWithDeviceCookies('/auth/pin/verify', { pin: body.pin, app: APP });
-  if (!res || res.status >= 500) return NextResponse.json({ error: 'upstream' }, { status: 502 });
+  if (!res) return NextResponse.json({ error: 'server_unreachable' }, { status: 503 });
+  if (res.status >= 500) return NextResponse.json({ error: 'server_error' }, { status: 502 });
   if (res.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   if (!res.ok) {
     // 401 pin_rejected (wrong/locked/no-device) — uniform, no detail leaked.

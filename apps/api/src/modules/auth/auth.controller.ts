@@ -15,6 +15,8 @@ import type { CookieOptions, Response } from 'express';
 import { AppClient } from '@prisma/client';
 import type {
   DeviceForget,
+  DeviceStatus,
+  DeviceStatusResult,
   Onboarding,
   OtpRequest,
   OtpVerify,
@@ -194,13 +196,14 @@ export class AuthController {
   }
 
   /**
-   * `POST /auth/pin/reset` (`@Public`, device-cookie-gated forgot-PIN reset,
-   * §4.6/§12.6). Closes the reset dead-end: consumes the reset OTP (phone-
+   * `POST /auth/pin/reset` (`@Public`, PHONE-based forgot-PIN reset, §4.6/§12.6).
+   * Device-INDEPENDENT (the device may be revoked — the whole point): reads
+   * `{ phone, otpCode, pin, app }` from the body, consumes the reset OTP (phone-
    * ownership proof) AND sets the new PIN in ONE call, then mints a fresh signed-
-   * in session. A missing/invalid device cookie or a wrong/expired OTP is the
-   * SAME uniform `401 pin_rejected` (no enumeration); only `setPin`'s 422
-   * pin_invalid/weak_pin propagates as a form error. On success sets refreshed
-   * access+refresh cookies and the ROTATED device cookie → the user lands in.
+   * in session on a newly enrolled device. A wrong/expired OTP or an unknown
+   * phone is the SAME uniform `401 pin_rejected` (no enumeration); only `setPin`'s
+   * 422 pin_invalid/weak_pin propagates as a form error. On success sets refreshed
+   * access+refresh cookies and the fresh device cookie → the user lands in.
    */
   @Public()
   @UseGuards(ThrottlerGuard)
@@ -212,15 +215,34 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<PinVerifyApiResult> {
     this.rejectCrossSite(request);
+    const phone = this.requireString(body?.phone, 'phone');
     const otpCode = this.requireString(body?.otpCode, 'otpCode');
     const pin = this.requireString(body?.pin, 'pin');
     const app = this.requireApp(body?.app);
-    const deviceSecret = this.extractDeviceCookie(request) ?? '';
-    const lapsedRefreshToken = this.extractRefreshTokenOptional(request);
-    const result = await this.auth.resetPin(deviceSecret, app, otpCode, pin, lapsedRefreshToken);
+    const result = await this.auth.resetPin(phone, otpCode, pin, app);
     this.setTokenCookies(res, result);
     this.setDeviceCookie(res, result.deviceSecret);
     return result;
+  }
+
+  /**
+   * `POST /auth/device/status` (`@Public`, §12.1). The server-side device check
+   * the `/login` resolver branches on: reads the httpOnly device cookie and
+   * reports `{ trusted, hasPin }` for the given `app`. Enumeration-safe — an
+   * unresolvable device is a plain `{ trusted: false, hasPin: false }`, never an
+   * error. Sets no cookies (safe to drive a Server Component render).
+   */
+  @Public()
+  @Post('device/status')
+  @HttpCode(200)
+  async deviceStatus(
+    @Body() body: DeviceStatus,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<DeviceStatusResult> {
+    this.rejectCrossSite(request);
+    const app = this.requireApp(body?.app);
+    const deviceSecret = this.extractDeviceCookie(request) ?? '';
+    return this.auth.deviceStatus(deviceSecret, app);
   }
 
   /**

@@ -25,6 +25,8 @@ export type {
   PinForgot,
   PinReset,
   DeviceForget,
+  DeviceStatus,
+  DeviceStatusResult,
 } from './auth';
 
 export type {
@@ -34,3 +36,18 @@ export type {
   RosterCohort,
   RosterResponse,
 } from './enrollment';
+
+export type {
+  CreateProgramRequest,
+  UpdateProgramRequest,
+  CreateModuleRequest,
+  UpdateModuleRequest,
+  CreateLessonRequest,
+  UpdateLessonRequest,
+  MoveDirection,
+  MoveRequest,
+  ProgramCreated,
+  LessonDetail,
+  ModuleDetail,
+  ProgramDetail,
+} from './program';

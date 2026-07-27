@@ -12,7 +12,8 @@ export async function POST(req: Request): Promise<NextResponse | Response> {
   }
 
   const res = await postPublic('/auth/otp/request', { phone });
-  if (!res || res.status >= 500) return NextResponse.json({ error: 'upstream' }, { status: 502 });
+  if (!res) return NextResponse.json({ error: 'server_unreachable' }, { status: 503 });
+  if (res.status >= 500) return NextResponse.json({ error: 'server_error' }, { status: 502 });
   if (res.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
 
   return new NextResponse(null, { status: 204 });

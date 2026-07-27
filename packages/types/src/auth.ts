@@ -117,12 +117,14 @@ export interface PinForgot {
 
 /**
  * Body of `POST /auth/pin/reset` (forgot-PIN reset, feature 0010 §4.6/§12.6).
- * The client holds NO phone: the reset OTP (`otpCode`) is the phone-ownership
- * proof and `pin` is the new PIN — both submitted together in ONE call. The API
- * resolves the account from the device cookie, consumes the OTP, sets the new
- * PIN, and mints a fresh signed-in session. The response is a {@link PinVerifyResult}.
+ * Device-INDEPENDENT: the user enters their `phone`, the reset OTP (`otpCode`) is
+ * the phone-ownership proof, and `pin` is the new PIN — all submitted together in
+ * ONE call. The API normalizes the phone, consumes the OTP, resolves the account
+ * by phone, sets the new PIN, revokes old sessions, and mints a fresh signed-in
+ * session on a newly enrolled device. The response is a {@link PinVerifyResult}.
  */
 export interface PinReset {
+  phone: string;
   otpCode: string;
   pin: string;
   app: AppClient;
@@ -131,6 +133,23 @@ export interface PinReset {
 /** Body of `POST /auth/device/forget` (clears the current trusted-device row). */
 export interface DeviceForget {
   app: AppClient;
+}
+
+/** Body of `POST /auth/device/status` (feature 0010 §12.1). The device cookie is
+ * read server-side; only the `app` scoping rides the body. */
+export interface DeviceStatus {
+  app: AppClient;
+}
+
+/**
+ * Result of `POST /auth/device/status` — the server-side truth the `/login`
+ * resolver branches on: `trusted` is a LIVE trusted-device row for this app, and
+ * `hasPin` is whether that device's account has a PIN set. Both false when the
+ * device cookie resolves to nothing (enumeration-safe).
+ */
+export interface DeviceStatusResult {
+  trusted: boolean;
+  hasPin: boolean;
 }
 
 /** Body of `POST /auth/otp/request`. Phone is a friendly local format; the API normalizes to E.164. */

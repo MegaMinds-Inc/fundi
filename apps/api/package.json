@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:seed": "node --env-file-if-exists=.env -r ts-node/register prisma/seed.ts"
+    "db:seed": "node --env-file-if-exists=.env -r ts-node/register prisma/seed.ts",
+    "db:seed:demo": "node --env-file-if-exists=.env -r ts-node/register prisma/seed-demo-program.ts"
   },
   "prisma": {
     "seed": "node --env-file-if-exists=.env -r ts-node/register prisma/seed.ts"

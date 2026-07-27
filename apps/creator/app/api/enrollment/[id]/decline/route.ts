@@ -11,7 +11,7 @@ export async function POST(
   const { id } = await params;
   const result = await authPost(`/enrollment/${encodeURIComponent(id)}/decline`, {});
   if (result.kind === 'reauth') return NextResponse.json({ error: 'reauth' }, { status: 401 });
-  if (result.kind === 'retryable')
+  if (result.kind === 'unreachable' || result.kind === 'retryable')
     return NextResponse.json({ error: 'retryable' }, { status: 503 });
 
   if (result.status === 204) return new NextResponse(null, { status: 204 });

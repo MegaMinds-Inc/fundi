@@ -1,0 +1,297 @@
+<!-- @dsCard group="Creator App" viewport="1200x760" name="Program & Curriculum Builder" subtitle="Setup (shape+visibility), module/lesson tree, per-type lesson editor, draft/publish + learner preview — desktop-primary, adapts down" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../image-slot.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel" src="./ModuleCover.jsx"></script>
+<script type="text/babel" src="../learner-progress/LessonViewer.jsx"></script>
+<script type="text/babel" src="./ProgramSetup.jsx"></script>
+<script type="text/babel" src="./ModuleTree.jsx"></script>
+<script type="text/babel" src="./LessonEditor.jsx"></script>
+<script type="text/babel" src="./PublishBar.jsx"></script>
+<style>
+  body { margin: 0; background: #05100a; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 4px; }
+</style>
+<div id="root"></div>
+<script type="text/babel">
+
+const INITIAL_MODULES = [
+  { id: 'm1', title: 'Finding your niche', description: 'Get clear on exactly who you serve, so your pitch stops trying to convince everyone.', unlockMode: 'immediate', lessons: [
+    { id: 'l1', title: 'Why niche beats broad', type: 'text', body: 'Price is a signal of value, not a cost-plus calculation. A broad promise convinces no one — the tighter the niche, the easier the pitch.' },
+    { id: 'l2', title: 'Watch: 3 creators who nailed it', type: 'video', videoUrl: 'https://youtube.com/watch?v=example', duration: '6:12' },
+  ]},
+  { id: 'm2', title: 'Build the offer', description: 'Turn your niche into a priced, sellable offer learners can actually say yes to.', unlockMode: 'after_previous', lessons: [
+    { id: 'l3', title: 'Offer worksheet', type: 'attachment', fileName: 'offer-worksheet.pdf', fileSize: '340 KB' },
+    { id: 'l4', title: 'Pricing your first offer', type: 'text', body: 'Price is a signal of value, not a cost-plus calculation.' },
+    { id: 'l5', title: 'Live Q&A with Coach Ada', type: 'live_online', when: 'Thursday, 6:00 PM WAT', where: 'zoom.us/j/example' },
+  ]},
+  { id: 'm3', title: 'Launch', description: '', unlockMode: 'after_days', unlockDays: 3, lessons: [
+    { id: 'l6', title: 'Launch day meetup', type: 'in_person', when: 'Sat, June 14 · 10:00 AM', where: 'Lagos co-working hub, Yaba' },
+  ]},
+];
+
+const BREAKPOINTS = {
+  desktop: { width: 1200, label: 'Desktop', icon: 'ph-desktop' },
+  tablet: { width: 834, label: 'Tablet', icon: 'ph-device-tablet' },
+  mobile: { width: 390, label: 'Mobile', icon: 'ph-device-mobile' },
+};
+
+function uid(prefix) { return prefix + Math.random().toString(36).slice(2, 8); }
+
+function App() {
+  const [device, setDevice] = React.useState('desktop');
+  const [stage, setStage] = React.useState('setup'); // setup | build
+  const [program, setProgram] = React.useState(() => {
+    try {
+      const raw = localStorage.getItem('fundi_program_draft');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { title: '', shape: null, visibility: null, coverStyle: 'gradient', status: 'draft', modules: INITIAL_MODULES };
+  });
+  const [activeLessonId, setActiveLessonId] = React.useState('l4');
+  const [deletedToast, setDeletedToast] = React.useState(null);
+  const [publishedSnapshot, setPublishedSnapshot] = React.useState(() => {
+    try {
+      const raw = localStorage.getItem('fundi_program_published');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return null;
+  });
+  const [saveStatus, setSaveStatus] = React.useState('saved'); // saved | saving
+  const saveTimer = React.useRef(null);
+
+  // Saving (persisting the working draft) is separate from publishing (pushing
+  // it live) — autosaves as you type/edit, before AND after a program has been
+  // published, so nothing is ever lost waiting on an explicit save click.
+  React.useEffect(() => {
+    setSaveStatus('saving');
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      try { localStorage.setItem('fundi_program_draft', JSON.stringify(program)); } catch (e) {}
+      setSaveStatus('saved');
+    }, 500);
+    return () => clearTimeout(saveTimer.current);
+  }, [program]);
+  const deleteTimer = React.useRef(null);
+  const [previewEmptyTree, setPreviewEmptyTree] = React.useState(false);
+
+  function findLesson(id) {
+    for (const m of program.modules) for (const l of m.lessons) if (l.id === id) return l;
+    return null;
+  }
+  function findLessonModuleTitle(id) {
+    for (const m of program.modules) if (m.lessons.some((l) => l.id === id)) return m.title;
+    return '';
+  }
+
+  function updateLesson(updated) {
+    setProgram((p) => ({
+      ...p,
+      modules: p.modules.map((m) => ({ ...m, lessons: m.lessons.map((l) => (l.id === updated.id ? updated : l)) })),
+    }));
+  }
+
+  function deleteLesson(id) {
+    let removed = null, removedModuleId = null, removedIndex = -1;
+    for (const m of program.modules) {
+      const idx = m.lessons.findIndex((l) => l.id === id);
+      if (idx !== -1) { removed = m.lessons[idx]; removedModuleId = m.id; removedIndex = idx; break; }
+    }
+    setProgram((p) => ({
+      ...p,
+      modules: p.modules.map((m) => (m.id === removedModuleId ? { ...m, lessons: m.lessons.filter((l) => l.id !== id) } : m)),
+    }));
+    setActiveLessonId(null);
+    if (removed) {
+      setDeletedToast({ lesson: removed, moduleId: removedModuleId, index: removedIndex });
+      clearTimeout(deleteTimer.current);
+      deleteTimer.current = setTimeout(() => setDeletedToast(null), 5000);
+    }
+  }
+
+  function undoDelete() {
+    if (!deletedToast) return;
+    setProgram((p) => ({
+      ...p,
+      modules: p.modules.map((m) => {
+        if (m.id !== deletedToast.moduleId) return m;
+        const lessons = [...m.lessons];
+        lessons.splice(deletedToast.index, 0, deletedToast.lesson);
+        return { ...m, lessons };
+      }),
+    }));
+    setActiveLessonId(deletedToast.lesson.id);
+    setDeletedToast(null);
+    clearTimeout(deleteTimer.current);
+  }
+
+  function renameModule(moduleId, title) {
+    setProgram((p) => ({ ...p, modules: p.modules.map((m) => (m.id === moduleId ? { ...m, title } : m)) }));
+  }
+
+  function updateModule(moduleId, patch) {
+    setProgram((p) => ({ ...p, modules: p.modules.map((m) => (m.id === moduleId ? { ...m, ...patch } : m)) }));
+  }
+
+  function addLesson(moduleId) {
+    const id = uid('l');
+    setProgram((p) => ({
+      ...p,
+      modules: p.modules.map((m) => (m.id === moduleId ? { ...m, lessons: [...m.lessons, { id, title: 'New lesson', type: 'text', body: '' }] } : m)),
+    }));
+    setActiveLessonId(id);
+  }
+
+  function addModule() {
+    setProgram((p) => ({ ...p, modules: [...p.modules, { id: uid('m'), title: 'New module', lessons: [] }] }));
+  }
+
+  function moveLesson(moduleId, lessonIndex, dir) {
+    setProgram((p) => ({
+      ...p,
+      modules: p.modules.map((m) => {
+        if (m.id !== moduleId) return m;
+        const arr = [...m.lessons];
+        const j = lessonIndex + dir;
+        if (j < 0 || j >= arr.length) return m;
+        [arr[lessonIndex], arr[j]] = [arr[j], arr[lessonIndex]];
+        return { ...m, lessons: arr };
+      }),
+    }));
+  }
+
+  function moveModule(index, dir) {
+    setProgram((p) => {
+      const arr = [...p.modules];
+      const j = index + dir;
+      if (j < 0 || j >= arr.length) return p;
+      [arr[index], arr[j]] = [arr[j], arr[index]];
+      return { ...p, modules: arr };
+    });
+  }
+
+  // Storyblok-style draft/publish: editing a published program never pushes
+  // changes to learners on its own. `publishedSnapshot` is the last content a
+  // learner would actually see; the editable `program` is always the working
+  // draft. Publish/"Publish changes" is the only thing that copies draft -> live.
+  const { status: _curStatus, ...currentContent } = program;
+  const hasUnpublishedChanges = program.status === 'published' && publishedSnapshot != null && JSON.stringify(currentContent) !== JSON.stringify(publishedSnapshot);
+
+  function publishProgram() {
+    const { status, ...content } = program;
+    setPublishedSnapshot(content);
+    try { localStorage.setItem('fundi_program_published', JSON.stringify(content)); } catch (e) {}
+    setProgram((p) => ({ ...p, status: 'published' }));
+  }
+
+  // Whole-program preview is a bigger context switch than the in-context
+  // lesson preview, so it opens as a real separate tab (handed off via
+  // localStorage) rather than swapping out the builder in place. Preview
+  // always shows the current DRAFT (so you can review before publishing) —
+  // it flags itself as draft-not-live whenever it differs from what's published.
+  function openProgramPreview() {
+    try {
+      localStorage.setItem('fundi_program_preview', JSON.stringify(program));
+      localStorage.setItem('fundi_program_preview_is_draft', JSON.stringify(program.status !== 'published' || hasUnpublishedChanges));
+    } catch (e) {}
+    window.open('./preview.html', '_blank');
+  }
+
+  const bp = BREAKPOINTS[device];
+  const isDesktop = device === 'desktop';
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#05100a', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 12px' }}>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+        {Object.entries(BREAKPOINTS).map(([key, b]) => (
+          <div
+            key={key}
+            onClick={() => setDevice(key)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-pill)', cursor: 'pointer',
+              fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 11.5,
+              background: device === key ? 'var(--color-accent-primary)' : 'var(--color-bg-elevated)',
+              color: device === key ? 'var(--color-text-on-accent)' : 'var(--color-text-muted)',
+            }}
+          >
+            <i className={'ph ' + b.icon} style={{ fontSize: 13 }} /> {b.label}
+          </div>
+        ))}
+      </div>
+
+      <div style={{
+        width: bp.width, maxWidth: '100%', minHeight: 720, borderRadius: isDesktop ? 16 : 28, overflow: 'hidden',
+        boxShadow: '0 30px 80px rgba(0,0,0,0.5)', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border-subtle)',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        {stage === 'setup' ? (
+          <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+            <div
+              onClick={() => { window.location.href = '../../Creator App Review.html'; }}
+              style={{ position: 'absolute', top: 18, left: 18, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '50%', background: 'var(--color-bg-elevated)', cursor: 'pointer' }}
+              title="Exit to Creator App"
+            >
+              <i className="ph ph-x" style={{ fontSize: 16, color: 'var(--color-text-muted)' }} />
+            </div>
+            <window.ProgramSetup
+              value={program}
+              onChange={setProgram}
+              onContinue={() => setStage('build')}
+            />
+          </div>
+        ) : (
+          <React.Fragment>
+            <window.PublishBar program={program} hasUnpublishedChanges={hasUnpublishedChanges} saveStatus={saveStatus} onPreview={openProgramPreview} onPublish={publishProgram} onExit={() => setStage('setup')} />
+            <div style={{ flex: 1, display: isDesktop ? 'flex' : 'flex', flexDirection: isDesktop ? 'row' : 'column', overflow: 'hidden' }}>
+              <div style={{
+                width: isDesktop ? 300 : '100%', flex: isDesktop ? 'none' : undefined, borderRight: isDesktop ? '1px solid var(--color-border-subtle)' : 'none',
+                borderBottom: isDesktop ? 'none' : '1px solid var(--color-border-subtle)', padding: '14px 10px', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box', maxHeight: isDesktop ? 'none' : 320,
+              }}>
+                <window.ModuleTree
+                  modules={previewEmptyTree ? [] : program.modules}
+                  coverStyle={program.coverStyle}
+                  activeLessonId={activeLessonId}
+                  onSelectLesson={setActiveLessonId}
+                  onMoveLesson={moveLesson}
+                  onMoveModule={moveModule}
+                  onAddLesson={addLesson}
+                  onAddModule={() => { setPreviewEmptyTree(false); addModule(); }}
+                  onRenameModule={renameModule}
+                  onUpdateModule={updateModule}
+                />
+                <div
+                  onClick={() => setPreviewEmptyTree((v) => !v)}
+                  style={{ padding: '8px 10px', fontSize: 10.5, color: 'var(--color-text-faint)', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+                >
+                  {previewEmptyTree ? '← back to demo modules' : '(demo) preview first-run empty state'}
+                </div>
+              </div>
+              <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+                <window.LessonEditor lesson={findLesson(activeLessonId)} moduleTitle={findLessonModuleTitle(activeLessonId)} onChange={updateLesson} onDelete={() => deleteLesson(activeLessonId)} />
+                {deletedToast && (
+                  <div style={{
+                    position: 'absolute', left: 16, right: 16, bottom: 16, zIndex: 30,
+                    background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-strong)', borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-popover)', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  }}>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-heading)' }}>Deleted "{deletedToast.lesson.title}"</span>
+                    <span onClick={undoDelete} style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 12, color: 'var(--color-accent-primary)', cursor: 'pointer', flex: 'none' }}>Undo</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </React.Fragment>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>

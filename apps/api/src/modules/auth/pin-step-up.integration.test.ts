@@ -352,6 +352,49 @@ describe('device/forget fully un-trusts; logout keeps device trust (0010 §13.3)
   });
 });
 
+describe('device/status — server-side resolver truth (0010 §12.1, Fix 2)', () => {
+  it('a live device whose account has a PIN → { trusted: true, hasPin: true }', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    const result = await enroll(`${PHONE_PREFIX}0016`, AppClient.creator);
+    const principal = principalOf(result);
+    await auth.setPin(principal, '835274');
+    const status = await auth.deviceStatus(result.deviceSecret!, AppClient.creator);
+    assert.deepEqual(status, { trusted: true, hasPin: true });
+  });
+
+  it('a live device whose account has NO PIN → { trusted: true, hasPin: false }', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    const result = await enroll(`${PHONE_PREFIX}0017`, AppClient.creator);
+    // No setPin — a brand-new account has no PIN yet.
+    const status = await auth.deviceStatus(result.deviceSecret!, AppClient.creator);
+    assert.deepEqual(status, { trusted: true, hasPin: false });
+  });
+
+  it('a revoked device → { trusted: false, hasPin: false } (enumeration-safe)', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    const result = await enroll(`${PHONE_PREFIX}0018`, AppClient.creator);
+    const principal = principalOf(result);
+    await auth.setPin(principal, '835274'); // PIN exists, but the device is dead
+    await auth.forgetDevice(result.deviceSecret!, AppClient.creator);
+    const status = await auth.deviceStatus(result.deviceSecret!, AppClient.creator);
+    assert.deepEqual(status, { trusted: false, hasPin: false });
+  });
+
+  it('an unknown device secret and a wrong-app device both → { trusted: false, hasPin: false }', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    assert.deepEqual(await auth.deviceStatus('not-a-real-secret', AppClient.creator), {
+      trusted: false,
+      hasPin: false,
+    });
+    // A learner device must never read as trusted for the creator app.
+    const learner = await enroll(`${PHONE_PREFIX}0019`, AppClient.learner);
+    assert.deepEqual(await auth.deviceStatus(learner.deviceSecret!, AppClient.creator), {
+      trusted: false,
+      hasPin: false,
+    });
+  });
+});
+
 describe('me() surfaces live needsPinSetup (0010 CHANGE 1)', () => {
   it('needsPinSetup is true for a null pinHash and false once a PIN is set', async (t) => {
     if (!dbAvailable) return t.skip('no DB');

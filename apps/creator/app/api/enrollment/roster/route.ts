@@ -9,7 +9,7 @@ export async function GET(req: Request): Promise<NextResponse> {
 
   const result = await authFetch(`/enrollment/roster?programId=${encodeURIComponent(programId)}`);
   if (result.kind === 'reauth') return NextResponse.json({ error: 'reauth' }, { status: 401 });
-  if (result.kind === 'retryable')
+  if (result.kind === 'unreachable' || result.kind === 'retryable')
     return NextResponse.json({ error: 'retryable' }, { status: 503 });
   if (result.kind === 'error')
     return NextResponse.json({ error: 'upstream' }, { status: result.status });

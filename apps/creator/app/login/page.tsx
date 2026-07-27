@@ -1,5 +1,6 @@
+import { redirect } from 'next/navigation';
 import type { AuthFlowProps } from '@fundi/ui';
-import { hasDeviceCookie } from '../lib/bff';
+import { getDeviceStatus, hasDeviceCookie } from '../lib/bff';
 import { LoginClient } from './LoginClient';
 
 type Step = NonNullable<AuthFlowProps['initialStep']>;
@@ -16,17 +17,31 @@ type Step = NonNullable<AuthFlowProps['initialStep']>;
 // BEFORE this resolver renders, and it is the only place on a top-level
 // navigation that can SET cookies (a Server Component cannot). So by the time
 // this runs, no mintable session exists; we only choose between the two
-// no-session entry screens:
-//   • trusted-device cookie present → `pin-entry` (the returning-user step-up).
-//     Covers both refresh rejections (`reauth_required`/`session_expired`, idle
-//     or absolute-cap) and a plain expired access token on a trusted device.
-//   • otherwise → `phone` (enrollment OTP).
+// no-session entry screens, but from the SERVER-VALIDATED device state (not mere
+// cookie presence — a revoked/expired device leaves its cookie in the jar and
+// must NOT strand the user on a dead pin-entry screen):
+//   • device is trusted (a live row) AND its account has a PIN → `pin-entry`
+//     (the returning-user step-up). Covers refresh rejections
+//     (`reauth_required`/`session_expired`) and a plain expired access token.
+//   • otherwise → `phone` (enrollment OTP). If a device cookie is nonetheless
+//     present, it is stale/invalid: redirect through the clear route so it is
+//     removed server-side (JS cannot delete an httpOnly cookie — Fix 4). The
+//     clear route drops the cookie and returns here; the second pass finds no
+//     device cookie and renders `phone` with no further redirect (no loop).
 //
 // `displayName` (§12.8) can only be server-resolved and is not cheaply
 // available here (no bearer post-lapse; `/auth/me` needs one), so it is omitted
 // → the generic "Welcome back" greeting.
 export default async function LoginPage() {
-  const deviceTrusted = await hasDeviceCookie();
-  const initialStep: Step = deviceTrusted ? 'pin-entry' : 'phone';
+  const { trusted, hasPin } = await getDeviceStatus();
+  if (trusted && hasPin) {
+    return <LoginClient initialStep="pin-entry" />;
+  }
+  // Not a usable device. If a stale cookie is still present, clear it server-side
+  // (Fix 4) before falling to phone entry, so it can't keep re-triggering here.
+  if (await hasDeviceCookie()) {
+    redirect('/api/auth/device/clear');
+  }
+  const initialStep: Step = 'phone';
   return <LoginClient initialStep={initialStep} />;
 }

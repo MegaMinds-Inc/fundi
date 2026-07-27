@@ -1,287 +1,118 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Badge, Card, CohortRoster, EmptyState, InviteApprove, Tabs, Tag } from '@fundi/ui';
-import type { ProgramSummary, RosterResponse } from '@fundi/types';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button, Card, EmptyState, ProgramsHome } from '@fundi/ui';
+import type { ProgramCardData } from '@fundi/ui';
+import type { ProgramSummary } from '@fundi/types';
+import { CohortsPanel } from './components/CohortsPanel';
 import { CreatorOnlyBuilderPanel } from './components/CreatorOnlyBuilderPanel';
-import { SignOutButton } from './components/SignOutButton';
 
-const PROGRAM_VISIBILITY_TONE = { public: 'live', private: 'draft' } as const;
+// Creator home (feature 0012): adopt the shipped `@fundi/ui` `ProgramsHome`,
+// fed by the REAL org-scoped `GET /api/programs`. The Programs tab now navigates
+// into the builder (`/programs/[id]/build`) or the create flow (`/programs/new`);
+// the Cohorts tab injects the real Sprint-2 invite/approve/roster enrollment UI
+// via `cohortsSlot` (see `CohortsPanel`) — the design's placeholder is never used.
+
+// Deterministic per-program cover seed: sum of the id's char codes, so each card
+// gets a stable generative cover that varies program-to-program.
+function seedFromId(id: string): number {
+  let sum = 0;
+  for (let i = 0; i < id.length; i += 1) sum += id.charCodeAt(i);
+  return sum;
+}
+
+function toCardData(p: ProgramSummary): ProgramCardData {
+  return {
+    id: p.id,
+    title: p.title,
+    status: p.status === 'published' ? 'published' : 'draft',
+    coverStyle: p.coverStyle,
+    seed: seedFromId(p.id),
+    moduleCount: p.moduleCount,
+    learnerCount: p.learnerCount,
+  };
+}
+
+type LoadState =
+  { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; programs: ProgramSummary[] };
 
 export function DashboardClient() {
-  const [tab, setTab] = useState('programs');
-  const [programs, setPrograms] = useState<ProgramSummary[] | null>(null);
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
-  const [roster, setRoster] = useState<RosterResponse | null>(null);
-  const [activeCohortId, setActiveCohortId] = useState<string>('');
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  const router = useRouter();
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/programs', { cache: 'no-store' })
-      .then((res) => (res.ok ? (res.json() as Promise<ProgramSummary[]>) : []))
+      .then((res) => (res.ok ? (res.json() as Promise<ProgramSummary[]>) : Promise.reject()))
       .then((data) => {
-        setPrograms(data);
-        setSelectedProgramId((current) => current ?? data[0]?.id ?? null);
+        if (!cancelled) setState({ kind: 'ready', programs: Array.isArray(data) ? data : [] });
       })
-      .catch(() => setPrograms([]));
-  }, []);
+      .catch(() => {
+        if (!cancelled) setState({ kind: 'error' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
-  const loadRoster = useCallback((programId: string) => {
-    fetch(`/api/enrollment/roster?programId=${encodeURIComponent(programId)}`, {
-      cache: 'no-store',
-    })
-      .then((res) => (res.ok ? (res.json() as Promise<RosterResponse>) : null))
-      .then((data) => {
-        setRoster(data);
-        setActiveCohortId((current) => {
-          const cohorts = data?.cohorts ?? [];
-          if (cohorts.some((c) => c.id === current)) return current;
-          return cohorts[0]?.id ?? '';
-        });
-      })
-      .catch(() => setRoster(null));
-  }, []);
-
-  useEffect(() => {
-    if (selectedProgramId) loadRoster(selectedProgramId);
-  }, [selectedProgramId, loadRoster]);
-
-  function selectProgram(programId: string) {
-    setSelectedProgramId(programId);
-    setRoster(null);
-    setTab('cohorts');
-  }
-
-  async function handleInvite(phone: string) {
-    if (!selectedProgramId) return;
-    setInviteError(null);
-    const res = await fetch('/api/enrollment/invite', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        programId: selectedProgramId,
-        cohortId: activeCohortId || null,
-        phone,
-      }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      setInviteError(
-        data?.error === 'already_enrolled' ? 'Already invited.' : 'Could not send invite.',
-      );
-      return;
+  async function handleSignOut(): Promise<void> {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Best-effort: cookies are httpOnly and cleared server-side; head to login regardless.
     }
-    loadRoster(selectedProgramId);
+    router.replace('/login');
   }
 
-  async function handleApprove(id: string) {
-    await fetch(`/api/enrollment/${id}/approve`, { method: 'POST' });
-    if (selectedProgramId) loadRoster(selectedProgramId);
+  if (state.kind === 'loading') {
+    return (
+      <main style={{ maxWidth: 620, margin: '0 auto', padding: '80px 24px' }}>
+        <Card>
+          <EmptyState icon="ph-circle-notch" title="Loading programs…" body="One moment." />
+        </Card>
+      </main>
+    );
   }
 
-  async function handleDecline(id: string) {
-    await fetch(`/api/enrollment/${id}/decline`, { method: 'POST' });
-    if (selectedProgramId) loadRoster(selectedProgramId);
+  if (state.kind === 'error') {
+    return (
+      <main style={{ maxWidth: 620, margin: '0 auto', padding: '80px 24px' }}>
+        <Card>
+          <EmptyState
+            icon="ph-cloud-slash"
+            title="Couldn't load your programs"
+            body="We couldn't reach the server. Check your connection and try again."
+          />
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setState({ kind: 'loading' });
+                setReloadKey((k) => k + 1);
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
+      </main>
+    );
   }
+
+  const { programs } = state;
 
   return (
-    <main
-      style={{
-        position: 'relative',
-        minHeight: '100vh',
-        maxWidth: 960,
-        margin: '0 auto',
-        padding: '32px 16px 64px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 24,
-      }}
-    >
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 12,
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span
-            style={{
-              font: 'var(--text-eyebrow)',
-              letterSpacing: 'var(--tracking-eyebrow)',
-              textTransform: 'uppercase',
-              color: 'var(--color-text-muted)',
-            }}
-          >
-            Creator
-          </span>
-          <h1
-            style={{
-              font: 'var(--text-display-lg)',
-              letterSpacing: 'var(--tracking-tight)',
-              margin: 0,
-              color: 'var(--color-text-heading)',
-            }}
-          >
-            Your programs
-          </h1>
-        </div>
-        <SignOutButton />
-      </header>
-
-      <Tabs
-        variant="pill"
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { label: 'Programs', value: 'programs' },
-          { label: 'Cohorts', value: 'cohorts' },
-          { label: 'Needs you', value: 'needs-you' },
-        ]}
+    <>
+      <ProgramsHome
+        programs={programs.map(toCardData)}
+        onNewProgram={() => router.push('/programs/new')}
+        onOpenProgram={(id) => router.push(`/programs/${id}/build`)}
+        onSignOut={handleSignOut}
+        cohortsSlot={programs.length > 0 ? <CohortsPanel programs={programs} /> : undefined}
       />
-
-      {tab === 'needs-you' ? (
-        <Card>
-          <EmptyState
-            icon="ph-check-circle"
-            title="No one needs you right now"
-            body="When a learner goes quiet or falls behind, they'll surface here. Go create."
-          />
-        </Card>
-      ) : tab === 'programs' ? (
-        programs === null ? (
-          <Card>
-            <EmptyState icon="ph-circle-notch" title="Loading programs…" body="One moment." />
-          </Card>
-        ) : programs.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon="ph-stack"
-              title="No programs yet"
-              body="Programs are seeded for dev/test until the builder ships — run `pnpm --filter api db:seed`."
-            />
-          </Card>
-        ) : (
-          <div
-            style={{
-              display: 'grid',
-              gap: 16,
-              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            }}
-          >
-            {programs.map((program) => (
-              <Card
-                key={program.id}
-                interactive
-                title={program.title}
-                meta={program.shape.replace('_', ' ')}
-                onClick={() => selectProgram(program.id)}
-                footer={
-                  <Badge tone={PROGRAM_VISIBILITY_TONE[program.visibility]}>
-                    {program.visibility}
-                  </Badge>
-                }
-              >
-                <p
-                  style={{
-                    font: 'var(--text-body-md)',
-                    color: 'var(--color-text-muted)',
-                    margin: 0,
-                  }}
-                >
-                  {program.visibility === 'private'
-                    ? 'Invited learners need approval to join.'
-                    : 'Anyone invited joins immediately.'}
-                </p>
-              </Card>
-            ))}
-          </div>
-        )
-      ) : !selectedProgramId ? (
-        <Card>
-          <EmptyState
-            icon="ph-stack"
-            title="Pick a program first"
-            body="Choose a program from the Programs tab to invite learners and view its roster."
-          />
-        </Card>
-      ) : (
-        <>
-          {roster && roster.cohorts.length > 1 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {roster.cohorts.map((c) => (
-                <Tag
-                  key={c.id}
-                  color="teal"
-                  selected={activeCohortId === c.id}
-                  onClick={() => setActiveCohortId(c.id)}
-                >
-                  {c.name}
-                </Tag>
-              ))}
-            </div>
-          )}
-
-          {roster?.program.visibility === 'private' && (
-            <Card title="Invite & approve">
-              <InviteApprove
-                pending={roster.pending}
-                onInvite={handleInvite}
-                onApprove={handleApprove}
-                onDecline={handleDecline}
-              />
-              {inviteError && (
-                <p
-                  style={{
-                    font: 'var(--text-body-sm)',
-                    color: 'var(--color-status-danger-text)',
-                    margin: '8px 0 0',
-                  }}
-                >
-                  {inviteError}
-                </p>
-              )}
-            </Card>
-          )}
-
-          {roster?.program.visibility === 'public' && (
-            <Card title="Invite a learner">
-              <InviteApprove
-                pending={[]}
-                onInvite={handleInvite}
-                onApprove={() => {}}
-                onDecline={() => {}}
-              />
-              {inviteError && (
-                <p
-                  style={{
-                    font: 'var(--text-body-sm)',
-                    color: 'var(--color-status-danger-text)',
-                    margin: '8px 0 0',
-                  }}
-                >
-                  {inviteError}
-                </p>
-              )}
-            </Card>
-          )}
-
-          <Card title="Roster">
-            {roster ? (
-              <CohortRoster
-                cohorts={roster.cohorts}
-                activeId={activeCohortId}
-                onSelect={setActiveCohortId}
-              />
-            ) : (
-              <EmptyState icon="ph-circle-notch" title="Loading roster…" body="One moment." />
-            )}
-          </Card>
-        </>
-      )}
-
       <CreatorOnlyBuilderPanel />
-    </main>
+    </>
   );
 }

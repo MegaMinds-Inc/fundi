@@ -1,25 +1,25 @@
 import { NextResponse } from 'next/server';
-import {
-  APP,
-  pairFromFlat,
-  postWithDeviceCookies,
-  setAuthCookies,
-  setDeviceCookie,
-} from '../../../../lib/bff';
+import { APP, pairFromFlat, postPublic, setAuthCookies, setDeviceCookie } from '../../../../lib/bff';
 
-// POST /api/auth/pin/reset — forgot-PIN reset (feature 0010 §4.6/§12.6). The
-// client holds NO phone: the reset OTP (proof of phone ownership) and the new
-// PIN are submitted together. The API resolves the account from the forwarded
-// device cookie, consumes the OTP, sets the new PIN, revokes every old refresh
-// family, and mints a fresh signed-in session returning a FLAT `IssuedTokens` +
-// the ROTATED `deviceSecret` + memberships. On 200 we set the fresh access/
-// refresh cookies + the rotated device cookie and STRIP every secret from the
-// body. A 422 weak/invalid-PIN is a form error (code propagated, the reset OTP
-// is already spent — request a new one); a 401 pin_rejected (bad device / wrong
-// or expired OTP) is uniform. No enumeration.
+// POST /api/auth/pin/reset — PHONE-based forgot-PIN reset (feature 0010 §4.6/§12.6).
+// Device-INDEPENDENT: the client sends { phone, otpCode, pin } (the device may be
+// revoked — the whole reason the user is here). The API normalizes the phone,
+// consumes the OTP (proof of phone ownership), resolves the account by phone, sets
+// the new PIN, revokes every old refresh family, and mints a fresh signed-in
+// session on a NEWLY enrolled device — returning a FLAT `IssuedTokens` + the fresh
+// `deviceSecret` + memberships. On 200 we set the fresh access/refresh cookies +
+// the device cookie and STRIP every secret from the body. A 422 weak/invalid-PIN
+// is a form error (code propagated, the OTP is already spent — request a new one);
+// a 401 pin_rejected (wrong/expired OTP or unknown phone) is uniform. No enumeration.
 export async function POST(req: Request): Promise<NextResponse> {
-  const body = (await req.json().catch(() => null)) as { otpCode?: unknown; pin?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as {
+    phone?: unknown;
+    otpCode?: unknown;
+    pin?: unknown;
+  } | null;
   if (
+    typeof body?.phone !== 'string' ||
+    body.phone.length === 0 ||
     typeof body?.otpCode !== 'string' ||
     body.otpCode.length === 0 ||
     typeof body?.pin !== 'string' ||
@@ -28,12 +28,14 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 });
   }
 
-  const res = await postWithDeviceCookies('/auth/pin/reset', {
+  const res = await postPublic('/auth/pin/reset', {
+    phone: body.phone,
     otpCode: body.otpCode,
     pin: body.pin,
     app: APP,
   });
-  if (!res || res.status >= 500) return NextResponse.json({ error: 'upstream' }, { status: 502 });
+  if (!res) return NextResponse.json({ error: 'server_unreachable' }, { status: 503 });
+  if (res.status >= 500) return NextResponse.json({ error: 'server_error' }, { status: 502 });
   if (res.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   if (res.status === 422) {
     // Weak/invalid PIN — a form error, not session death. Propagate the code.
@@ -41,7 +43,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: detail?.code ?? 'pin_invalid' }, { status: 422 });
   }
   if (!res.ok) {
-    // 401 pin_rejected (bad device / wrong or expired OTP) — uniform, no leak.
+    // 401 pin_rejected (wrong/expired OTP or unknown phone) — uniform, no leak.
     return NextResponse.json({ error: 'pin_rejected' }, { status: 401 });
   }
 

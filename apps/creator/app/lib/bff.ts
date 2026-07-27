@@ -9,7 +9,7 @@
 // NEXT_PUBLIC_).
 
 import { cookies } from 'next/headers';
-import type { MeResult } from '@fundi/types';
+import type { DeviceStatusResult, MeResult } from '@fundi/types';
 import {
   APP,
   AT_COOKIE,
@@ -107,10 +107,30 @@ export async function getRefreshTokenValue(): Promise<string | undefined> {
   return getRefreshToken();
 }
 
-/** Whether a trusted-device cookie is present (drives the resolver's
- * pin-entry-vs-phone decision, feature 0010 §12.1). */
+/** Whether a trusted-device cookie is present. Used by the resolver ONLY to
+ * decide whether a stale cookie needs a server-side clear (feature 0010 §12.1 /
+ * Fix 4) — the pin-entry-vs-phone decision now comes from {@link getDeviceStatus}. */
 export async function hasDeviceCookie(): Promise<boolean> {
   return !!(await getDeviceSecret());
+}
+
+/**
+ * Server-side device validation for the `/login` resolver (feature 0010 §12.1).
+ * Presence of the device cookie is NOT enough — a revoked/expired row still leaves
+ * the cookie in the jar — so this asks the API for the real state: `trusted` (a
+ * LIVE trusted-device row for this app) and `hasPin` (that account has a PIN). It
+ * forwards the httpOnly device cookie to `POST /auth/device/status` and makes NO
+ * cookie writes, so it is safe to call during a Server Component render. Short-
+ * circuits to `{ trusted: false, hasPin: false }` when no device cookie exists,
+ * and on any transport/API failure (fail closed → phone entry).
+ */
+export async function getDeviceStatus(): Promise<DeviceStatusResult> {
+  const device = await getDeviceSecret();
+  if (!device) return { trusted: false, hasPin: false };
+  const res = await postWithDeviceCookies('/auth/device/status', { app: APP });
+  if (!res || !res.ok) return { trusted: false, hasPin: false };
+  const data = (await res.json().catch(() => null)) as Partial<DeviceStatusResult> | null;
+  return { trusted: !!data?.trusted, hasPin: !!data?.hasPin };
 }
 
 /**
@@ -194,7 +214,8 @@ export async function postWithDeviceCookies(path: string, body: unknown): Promis
 export type AuthFetchResult =
   | { kind: 'ok'; status: number; data: unknown }
   | { kind: 'reauth' } // sign in again — cookies cleared
-  | { kind: 'retryable' } // network / 5xx — session preserved, show OfflineBanner
+  | { kind: 'unreachable' } // fetch threw — API unreachable; session preserved (→ 503)
+  | { kind: 'retryable' } // API answered 5xx — session preserved, show OfflineBanner (→ 502)
   | { kind: 'error'; status: number; data: unknown }; // API 4xx business error
 
 async function bearerFetch(path: string, accessToken: string, init?: ApiInit): Promise<Response> {
@@ -231,7 +252,7 @@ export async function authFetch(path: string, init?: ApiInit): Promise<AuthFetch
   try {
     res = await bearerFetch(path, access, init);
   } catch {
-    return { kind: 'retryable' };
+    return { kind: 'unreachable' };
   }
   if (res.status !== 401) return classify(res);
 
@@ -246,13 +267,13 @@ export async function authFetch(path: string, init?: ApiInit): Promise<AuthFetch
     await clearAuthCookies();
     return { kind: 'reauth' };
   }
-  if (outcome.status === 'unavailable') return { kind: 'retryable' };
+  if (outcome.status === 'unavailable') return { kind: 'unreachable' };
 
   await setAuthCookies(outcome.pair);
   try {
     res = await bearerFetch(path, outcome.pair.accessToken, init);
   } catch {
-    return { kind: 'retryable' };
+    return { kind: 'unreachable' };
   }
   return classify(res);
 }
@@ -265,7 +286,10 @@ export async function authFetch(path: string, init?: ApiInit): Promise<AuthFetch
  * refresh REJECTION clears cookies.
  */
 export type AuthPostResult =
-  { kind: 'response'; status: number; data: unknown } | { kind: 'reauth' } | { kind: 'retryable' };
+  | { kind: 'response'; status: number; data: unknown }
+  | { kind: 'reauth' }
+  | { kind: 'unreachable' } // fetch threw — API unreachable (→ 503)
+  | { kind: 'retryable' }; // API answered 5xx (→ 502)
 
 export async function authPost(path: string, body: unknown): Promise<AuthPostResult> {
   let access = await getAccessToken();
@@ -278,7 +302,7 @@ export async function authPost(path: string, body: unknown): Promise<AuthPostRes
       await clearAuthCookies();
       return { kind: 'reauth' };
     }
-    if (outcome.status === 'unavailable') return { kind: 'retryable' };
+    if (outcome.status === 'unavailable') return { kind: 'unreachable' };
     await setAuthCookies(outcome.pair);
     access = outcome.pair.accessToken;
   }
@@ -288,7 +312,7 @@ export async function authPost(path: string, body: unknown): Promise<AuthPostRes
   try {
     res = await bearerFetch(path, access, init);
   } catch {
-    return { kind: 'retryable' };
+    return { kind: 'unreachable' };
   }
   if (res.status === 401) {
     const rt = await getRefreshToken();
@@ -301,12 +325,12 @@ export async function authPost(path: string, body: unknown): Promise<AuthPostRes
       await clearAuthCookies();
       return { kind: 'reauth' };
     }
-    if (outcome.status === 'unavailable') return { kind: 'retryable' };
+    if (outcome.status === 'unavailable') return { kind: 'unreachable' };
     await setAuthCookies(outcome.pair);
     try {
       res = await bearerFetch(path, outcome.pair.accessToken, init);
     } catch {
-      return { kind: 'retryable' };
+      return { kind: 'unreachable' };
     }
   }
   if (res.status >= 500) return { kind: 'retryable' };

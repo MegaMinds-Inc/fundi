@@ -131,14 +131,13 @@ after(async () => {
   await raw.$disconnect();
 });
 
-describe('pin/reset — forgot-PIN reset (0010 §4.6/§12.6)', () => {
-  it('device + valid OTP + strong PIN → fresh session, rotated secret, old families revoked, new PIN set', async (t) => {
+describe('pin/reset — phone-based forgot-PIN reset (0010 §4.6/§12.6, Fix 3)', () => {
+  it('phone + valid OTP + strong PIN → fresh session, NEW device enrolled, old families revoked, new PIN set', async (t) => {
     if (!dbAvailable) return t.skip('no DB');
     const phone = `${PHONE_PREFIX}0101`;
     const result = await enroll(phone, AppClient.creator);
     const principal = principalOf(result);
     await auth.setPin(principal, OLD_PIN); // the PIN the user "forgot"
-    const deviceSecret = result.deviceSecret!;
     const oldHash = (await raw.account.findUnique({ where: { id: principal.accountId } }))?.pinHash;
 
     // A second live family that MUST be revoked (no session survives a reset).
@@ -150,18 +149,20 @@ describe('pin/reset — forgot-PIN reset (0010 §4.6/§12.6)', () => {
     const otpCode = await freshResetCode(phone);
     const sentBefore = delivery.sent.length;
 
-    const out = await auth.resetPin(deviceSecret, AppClient.creator, otpCode, NEW_PIN);
+    // Reset is PHONE-based now — the device cookie plays no part.
+    const out = await auth.resetPin(phone, otpCode, NEW_PIN, AppClient.creator);
 
     // Fresh signed-in session with NO further SMS from the reset itself.
     assert.ok(out.accessToken, 'reset mints a fresh access token');
     assert.ok(out.refreshToken, 'reset mints a fresh refresh token');
     assert.equal(delivery.sent.length, sentBefore, 'the reset call itself sends no SMS');
-    assert.notEqual(out.deviceSecret, deviceSecret, 'the device secret must rotate');
 
-    // Old secret dead, rotated one live; access token app-scoped to the device.
-    assert.equal(await devices.verifyCookie(deviceSecret, AppClient.creator), null);
-    const rotatedRow = await devices.verifyCookie(out.deviceSecret, AppClient.creator);
-    assert.ok(rotatedRow, 'the rotated secret resolves to the live device row');
+    // A freshly enrolled device secret resolves to a live row; access token
+    // app-scoped to the account. (The reset is device-independent — it enrolls a
+    // new device rather than depending on / rotating an old, possibly-revoked one.)
+    assert.ok(out.deviceSecret, 'reset enrolls and returns a device secret');
+    const newDeviceRow = await devices.verifyCookie(out.deviceSecret, AppClient.creator);
+    assert.ok(newDeviceRow, 'the returned secret resolves to a live device row');
     const p = tokens.verifyAccessToken(out.accessToken);
     assert.equal(p.app, AppClient.creator);
     assert.equal(p.accountId, principal.accountId);
@@ -177,21 +178,34 @@ describe('pin/reset — forgot-PIN reset (0010 §4.6/§12.6)', () => {
     // The stored PIN actually CHANGED: old no longer verifies, new does.
     const newHash = (await raw.account.findUnique({ where: { id: principal.accountId } }))?.pinHash;
     assert.notEqual(newHash, oldHash, 'the stored pinHash must change on reset');
-    assert.equal((await pins.verifyPin(rotatedRow!, OLD_PIN)).ok, false, 'old PIN no longer works');
-    assert.equal((await pins.verifyPin(rotatedRow!, NEW_PIN)).ok, true, 'the new PIN works');
-  });
-
-  it('a bad/missing device cookie is a UNIFORM 401 pin_rejected (no oracle)', async (t) => {
-    if (!dbAvailable) return t.skip('no DB');
-    await assert.rejects(
-      () => auth.resetPin('not-a-real-secret', AppClient.creator, '000000', NEW_PIN),
-      (e: unknown) =>
-        e instanceof HttpException &&
-        pinRejected(e.getStatus(), (e.getResponse() as { code?: string }).code),
+    assert.equal(
+      (await pins.verifyPin(newDeviceRow!, OLD_PIN)).ok,
+      false,
+      'old PIN no longer works',
     );
+    assert.equal((await pins.verifyPin(newDeviceRow!, NEW_PIN)).ok, true, 'the new PIN works');
   });
 
-  it('a wrong/expired OTP is the SAME uniform 401 pin_rejected (no otp_invalid leak), PIN untouched', async (t) => {
+  it('resets even when the device is fully revoked (device-independent — the whole point)', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    const phone = `${PHONE_PREFIX}0105`;
+    const result = await enroll(phone, AppClient.creator);
+    const principal = principalOf(result);
+    await auth.setPin(principal, OLD_PIN);
+    // Revoke the enrolled device — mirrors the stuck-account repro.
+    await devices.revoke(principal.accountId, AppClient.creator);
+    assert.equal(await devices.verifyCookie(result.deviceSecret!, AppClient.creator), null);
+
+    const otpCode = await freshResetCode(phone);
+    const out = await auth.resetPin(phone, otpCode, NEW_PIN, AppClient.creator);
+
+    assert.ok(out.accessToken, 'a revoked device does not block a phone-based reset');
+    const newDeviceRow = await devices.verifyCookie(out.deviceSecret, AppClient.creator);
+    assert.ok(newDeviceRow, 'a fresh device is enrolled and its secret resolves live');
+    assert.equal((await pins.verifyPin(newDeviceRow!, NEW_PIN)).ok, true, 'the new PIN works');
+  });
+
+  it('a wrong/expired OTP is a UNIFORM 401 pin_rejected (no otp_invalid leak), PIN untouched', async (t) => {
     if (!dbAvailable) return t.skip('no DB');
     const phone = `${PHONE_PREFIX}0102`;
     const result = await enroll(phone, AppClient.creator);
@@ -202,13 +216,36 @@ describe('pin/reset — forgot-PIN reset (0010 §4.6/§12.6)', () => {
     // The enrollment OTP was already consumed by verifyOtp; no unconsumed reset
     // challenge exists, so any code fails uniformly (not otp_invalid/otp_expired).
     await assert.rejects(
-      () => auth.resetPin(result.deviceSecret!, AppClient.creator, '000000', NEW_PIN),
+      () => auth.resetPin(phone, '000000', NEW_PIN, AppClient.creator),
       (e: unknown) =>
         e instanceof HttpException &&
         pinRejected(e.getStatus(), (e.getResponse() as { code?: string }).code),
     );
     const after = (await raw.account.findUnique({ where: { id: principal.accountId } }))?.pinHash;
     assert.equal(after, before, 'a failed OTP must not touch the stored PIN');
+  });
+
+  it('an unknown phone (valid OTP, no account) is the SAME uniform 401 pin_rejected (no enumeration)', async (t) => {
+    if (!dbAvailable) return t.skip('no DB');
+    // A phone that has a live OTP challenge but NO account: requestOtp issues a
+    // code without creating an account, so otp.verify passes but the account
+    // lookup is null → the same uniform pin_rejected as a bad code (no oracle on
+    // whether the phone maps to an account).
+    const phone = `${PHONE_PREFIX}0106`;
+    const otpCode = await freshResetCode(phone);
+    const normalized = phoneSvc.normalize(phone);
+    const accountBefore = await raw.account.findUnique({ where: { phone: normalized } });
+    assert.equal(accountBefore, null, 'precondition: no account for this phone');
+
+    await assert.rejects(
+      () => auth.resetPin(phone, otpCode, NEW_PIN, AppClient.creator),
+      (e: unknown) =>
+        e instanceof HttpException &&
+        pinRejected(e.getStatus(), (e.getResponse() as { code?: string }).code),
+    );
+    // The failed reset must not have created an account or set a PIN.
+    const accountAfter = await raw.account.findUnique({ where: { phone: normalized } });
+    assert.equal(accountAfter, null, 'a failed reset must not mint an account');
   });
 
   it('a weak PIN propagates 422 weak_pin (a form error, NOT collapsed to pin_rejected)', async (t) => {
@@ -220,28 +257,11 @@ describe('pin/reset — forgot-PIN reset (0010 §4.6/§12.6)', () => {
     const otpCode = await freshResetCode(phone);
 
     await assert.rejects(
-      () => auth.resetPin(result.deviceSecret!, AppClient.creator, otpCode, WEAK_PIN),
+      () => auth.resetPin(phone, otpCode, WEAK_PIN, AppClient.creator),
       (e: unknown) =>
         e instanceof HttpException &&
         e.getStatus() === 422 &&
         (e.getResponse() as { code?: string }).code === 'weak_pin',
     );
-  });
-
-  it('retires the lapsed refresh family it was handed', async (t) => {
-    if (!dbAvailable) return t.skip('no DB');
-    const phone = `${PHONE_PREFIX}0104`;
-    const result = await enroll(phone, AppClient.creator);
-    const principal = principalOf(result);
-    await auth.setPin(principal, OLD_PIN);
-    const lapsed = await tokens.createRefreshToken({
-      accountId: principal.accountId,
-      app: AppClient.creator,
-    });
-    const otpCode = await freshResetCode(phone);
-
-    await auth.resetPin(result.deviceSecret!, AppClient.creator, otpCode, NEW_PIN, lapsed.token);
-    const lapsedRow = await raw.refreshToken.findFirst({ where: { familyId: lapsed.familyId } });
-    assert.ok(lapsedRow?.revokedAt, 'the presented lapsed family must be revoked');
   });
 });

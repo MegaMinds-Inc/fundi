@@ -1,0 +1,394 @@
+{
+  "organisation": {
+    "id": "org_demo_creatorhub",
+    "name": "CreatorHub Demo Org"
+  },
+  "program": {
+    "id": "prog_content_creation_101",
+    "organisation_id": "org_demo_creatorhub",
+    "title": "Content Creation 101",
+    "tagline": "From \"what do I even post?\" to a repeatable system for creating content people actually watch.",
+    "description": "A 5-module, create-and-forget training program for new and early-stage content creators, delivered as a WhatsApp drip with one live session and one in-person capstone.",
+    "shape": "hybrid",
+    "visibility": "public",
+    "status": "active",
+    "duration_weeks": 5,
+    "modules": [
+      {
+        "id": "mod_1_niche",
+        "program_id": "prog_content_creation_101",
+        "order": 1,
+        "title": "Finding Your Voice & Niche",
+        "lessons": [
+          {
+            "id": "lsn_1_1",
+            "module_id": "mod_1_niche",
+            "order": 1,
+            "type": "text",
+            "title": "Welcome to Content Creation 101",
+            "estimated_minutes": 4,
+            "content": {
+              "body": "Welcome! Over the next five weeks you're going to go from \"I want to make content\" to \"I have a system for making content.\" You won't get everything perfect — nobody does — but you'll finish this program with a niche you can explain in one sentence, a content calendar, a basic filming/editing setup you're comfortable with, and a plan for growing an audience that actually sticks around.\n\nHow this works: every few days you'll get a WhatsApp message from your mentor with your next lesson. Some are quick reads, some are short videos, a couple are downloadable worksheets, and there's one live session and one in-person meetup near the end. If you go quiet for a while, don't worry — your mentor will check in. That's the whole point of this program: you focus on making things, we handle the reminders.\n\nBefore you move on, reply to this message with one sentence: \"I create content about ___ for ___.\" Don't worry if it's rough — Module 1 is entirely about sharpening this."
+            }
+          },
+          {
+            "id": "lsn_1_2",
+            "module_id": "mod_1_niche",
+            "order": 2,
+            "type": "video",
+            "title": "Finding Your Niche in 10 Minutes",
+            "estimated_minutes": 10,
+            "content": {
+              "runtime_seconds": 580,
+              "video_provider": "embed",
+              "video_url": "https://example-video-host.test/videos/finding-your-niche",
+              "summary_points": [
+                "Why \"everything\" isn't a niche, and why that's actually good news, not a limitation.",
+                "The three-circle method: what you know, what you enjoy, what people already ask you about.",
+                "Two real examples of creators who narrowed from a broad topic to a specific, ownable angle.",
+                "A same-day exercise: write down 10 things people already come to you for advice on."
+              ],
+              "closing_line": "Your niche isn't a cage — it's the thing that makes people remember you exist."
+            }
+          },
+          {
+            "id": "lsn_1_3",
+            "module_id": "mod_1_niche",
+            "order": 3,
+            "type": "attachment",
+            "title": "Niche Discovery Worksheet",
+            "estimated_minutes": 15,
+            "content": {
+              "file_name": "niche-discovery-worksheet.pdf",
+              "file_type": "application/pdf",
+              "url": "https://example-media-host.test/attachments/niche-discovery-worksheet.pdf",
+              "description": "A one-page fillable worksheet.",
+              "sections": [
+                "Your three circles — knowledge, enjoyment, audience demand (from the video)",
+                "Audience snapshot — who exactly are you talking to (age range, situation, what they're struggling with)",
+                "Your one-sentence niche statement — a fill-in-the-blank template",
+                "Three content pillars — the three recurring themes your content will rotate through"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "mod_2_planning",
+        "program_id": "prog_content_creation_101",
+        "order": 2,
+        "title": "Content Planning & Ideation",
+        "lessons": [
+          {
+            "id": "lsn_2_1",
+            "module_id": "mod_2_planning",
+            "order": 1,
+            "type": "text",
+            "title": "Building Your Content Calendar",
+            "estimated_minutes": 6,
+            "content": {
+              "body": "A content calendar isn't about rigid scheduling — it's about never staring at a blank page again. Here's the simplest version that works:\n\n1. Pick 3 pillars. From your Module 1 worksheet, you already have these. Every piece of content you make should map to one of them.\n\n2. Set a realistic cadence. Better to consistently post twice a week than to burn out after five days straight. Pick a number you can sustain for a full month before you even think about increasing it.\n\n3. Batch by pillar, not by day. Instead of thinking \"what do I post Tuesday,\" think \"I'm filming five pieces about Pillar 2 this Saturday.\" It's dramatically faster and keeps quality consistent.\n\n4. Keep a running idea list. Any time an idea hits you, drop it in one place immediately. Half of content block comes from having zero ideas queued up when it's time to film.\n\nYour task before the next lesson: list 15 content ideas across your 3 pillars (5 each). You'll use this list directly in the next video."
+            }
+          },
+          {
+            "id": "lsn_2_2",
+            "module_id": "mod_2_planning",
+            "order": 2,
+            "type": "video",
+            "title": "Batch-Creating a Month of Content in a Weekend",
+            "estimated_minutes": 12,
+            "content": {
+              "runtime_seconds": 735,
+              "video_provider": "embed",
+              "video_url": "https://example-video-host.test/videos/batch-creating-a-month-of-content",
+              "summary_points": [
+                "Turning your 15-idea list into a single weekend filming session.",
+                "Outfit/background/lighting tricks so five videos filmed in one sitting don't look identical.",
+                "A simple \"hook, value, call-to-action\" structure you can reuse for every short-form piece.",
+                "How to batch captions and thumbnails at the end, in one sitting, instead of per-post."
+              ]
+            }
+          },
+          {
+            "id": "lsn_2_3",
+            "module_id": "mod_2_planning",
+            "order": 3,
+            "type": "quiz",
+            "title": "Content Planning Check",
+            "estimated_minutes": 3,
+            "content": {
+              "instructions": "Quick 4-question check — no pressure, this just helps your mentor see what to reinforce.",
+              "questions": [
+                {
+                  "id": "q_2_3_1",
+                  "question": "What's the main risk of \"batching by day\" instead of \"batching by pillar\"?",
+                  "options": [
+                    "It takes longer overall",
+                    "It fragments your attention across unrelated topics in one sitting",
+                    "It requires more equipment",
+                    "There's no real difference"
+                  ],
+                  "correct_index": 1,
+                  "explanation": "Batching by pillar keeps you in one topic/mindset, which is faster and produces more consistent quality than jumping between unrelated ideas."
+                },
+                {
+                  "id": "q_2_3_2",
+                  "question": "How many content pillars did Lesson 2.1 recommend starting with?",
+                  "options": ["1", "3", "6", "As many as possible"],
+                  "correct_index": 1,
+                  "explanation": "Three keeps variety without spreading your niche too thin."
+                },
+                {
+                  "id": "q_2_3_3",
+                  "question": "True or false: you should pick the highest posting frequency you can imagine, then scale down if needed.",
+                  "options": ["True", "False"],
+                  "correct_index": 1,
+                  "explanation": "Start at a sustainable cadence and increase later — starting too ambitious is the #1 cause of early creator burnout."
+                },
+                {
+                  "id": "q_2_3_4",
+                  "question": "Where should new content ideas go the moment you think of them?",
+                  "options": [
+                    "Nowhere, you'll remember the good ones",
+                    "A single running idea list",
+                    "Directly into a filming schedule",
+                    "A group chat with friends"
+                  ],
+                  "correct_index": 1,
+                  "explanation": "Capturing ideas immediately in one place is what keeps the batch-filming session in Lesson 2.2 well-stocked."
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "mod_3_shooting_editing",
+        "program_id": "prog_content_creation_101",
+        "order": 3,
+        "title": "Shooting & Editing on a Budget",
+        "lessons": [
+          {
+            "id": "lsn_3_1",
+            "module_id": "mod_3_shooting_editing",
+            "order": 1,
+            "type": "video",
+            "title": "Smartphone Videography Basics",
+            "estimated_minutes": 10,
+            "content": {
+              "runtime_seconds": 605,
+              "video_provider": "embed",
+              "video_url": "https://example-video-host.test/videos/smartphone-videography-basics",
+              "summary_points": [
+                "Framing and the rule of thirds using just your phone's grid setting.",
+                "Natural light setup — facing a window vs. facing away, and why it matters more than any ring light.",
+                "Audio: why a $15 clip-on mic will improve your content more than any camera upgrade.",
+                "Stabilization tricks without a gimbal (bracing, two-hand grip, walking technique)."
+              ]
+            }
+          },
+          {
+            "id": "lsn_3_2",
+            "module_id": "mod_3_shooting_editing",
+            "order": 2,
+            "type": "attachment",
+            "title": "Free & Low-Cost Editing Apps Cheat Sheet",
+            "estimated_minutes": 8,
+            "content": {
+              "file_name": "editing-apps-cheat-sheet.pdf",
+              "file_type": "application/pdf",
+              "url": "https://example-media-host.test/attachments/editing-apps-cheat-sheet.pdf",
+              "description": "A comparison one-pager.",
+              "sections": [
+                "Three free mobile editing apps, what each is best at (quick cuts, captions, color)",
+                "A basic edit checklist (trim dead air \u2192 add captions \u2192 color pass \u2192 export settings)",
+                "Recommended export settings for vertical video on typical mid-range Android phones, tuned for low data usage"
+              ]
+            }
+          },
+          {
+            "id": "lsn_3_3",
+            "module_id": "mod_3_shooting_editing",
+            "order": 3,
+            "type": "live_online",
+            "title": "Live Q&A: Editing on a Budget",
+            "estimated_minutes": 45,
+            "content": {
+              "format": "Live video call",
+              "duration_minutes": 45,
+              "platform": "WhatsApp group call",
+              "agenda": [
+                "Open floor — bring your trickiest edit from this week",
+                "Mentor live-edits one submitted clip end-to-end",
+                "Common beginner mistakes walkthrough (jump cuts, mismatched audio levels, over-editing)",
+                "Q&A"
+              ],
+              "note": "Session is recorded and the recording is shared afterward as a follow-up attachment for anyone who couldn't join live.",
+              "join_link_placeholder": "https://example-call-host.test/rooms/cc101-module3-live"
+            }
+          }
+        ]
+      },
+      {
+        "id": "mod_4_growth",
+        "program_id": "prog_content_creation_101",
+        "order": 4,
+        "title": "Growing & Engaging Your Audience",
+        "lessons": [
+          {
+            "id": "lsn_4_1",
+            "module_id": "mod_4_growth",
+            "order": 1,
+            "type": "text",
+            "title": "The Engagement Loop",
+            "estimated_minutes": 5,
+            "content": {
+              "body": "Growth isn't just about reach — it's about giving people a reason to come back. Three things drive that:\n\n1. Reply to every comment for the first hour. This is the single highest-leverage growth action available to a new creator, and almost nobody does it consistently.\n\n2. End every piece with a specific question, not \"let me know what you think!\" Specific: \"Which of these three tips are you trying first?\" Vague questions get ignored; specific ones get answered.\n\n3. Reference your own audience back to them. Mention a comment from last week's post in this week's post. It signals you're actually listening, and it's the fastest way to turn a viewer into a repeat viewer.\n\nNone of this requires more content — it requires more attention on the content you already made."
+            }
+          },
+          {
+            "id": "lsn_4_2",
+            "module_id": "mod_4_growth",
+            "order": 2,
+            "type": "video",
+            "title": "Reading Your Analytics Without Losing Your Mind",
+            "estimated_minutes": 8,
+            "content": {
+              "runtime_seconds": 510,
+              "video_provider": "embed",
+              "video_url": "https://example-video-host.test/videos/reading-your-analytics",
+              "summary_points": [
+                "The only three numbers that matter in month one: watch-through rate, saves/shares, and comment rate (not follower count).",
+                "Why comparing yourself to accounts 10x your size is actively harmful to your decision-making.",
+                "A simple weekly 10-minute review routine: look at your top and bottom performing piece, ask \"what's different,\" done."
+              ]
+            }
+          },
+          {
+            "id": "lsn_4_3",
+            "module_id": "mod_4_growth",
+            "order": 3,
+            "type": "quiz",
+            "title": "Growth Strategy Quiz",
+            "estimated_minutes": 3,
+            "content": {
+              "instructions": "3-question check on this module's core ideas.",
+              "questions": [
+                {
+                  "id": "q_4_3_1",
+                  "question": "Which metric does Lesson 4.2 say matters most in month one?",
+                  "options": ["Follower count", "Watch-through rate", "Number of posts", "Video length"],
+                  "correct_index": 1,
+                  "explanation": "Follower count is a lagging vanity metric; watch-through rate tells you if the content itself is working."
+                },
+                {
+                  "id": "q_4_3_2",
+                  "question": "According to Lesson 4.1, what's the highest-leverage early growth action?",
+                  "options": [
+                    "Posting more often",
+                    "Buying ads",
+                    "Replying to comments in the first hour",
+                    "Collaborating with bigger creators"
+                  ],
+                  "correct_index": 2,
+                  "explanation": "Early replies boost the post's engagement signal and build a habit of two-way interaction with your audience."
+                },
+                {
+                  "id": "q_4_3_3",
+                  "question": "What kind of call-to-action question performs better?",
+                  "options": [
+                    "A vague one (\"let me know what you think!\")",
+                    "A specific one (\"which of these three tips are you trying first?\")"
+                  ],
+                  "correct_index": 1,
+                  "explanation": "Specific questions are easier to answer, which is why they get more responses."
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "mod_5_capstone",
+        "program_id": "prog_content_creation_101",
+        "order": 5,
+        "title": "Capstone & Community",
+        "lessons": [
+          {
+            "id": "lsn_5_1",
+            "module_id": "mod_5_capstone",
+            "order": 1,
+            "type": "in_person",
+            "title": "Demo Day Meetup",
+            "estimated_minutes": 120,
+            "content": {
+              "format": "In-person meetup",
+              "duration_minutes": 120,
+              "location_note": "Local venue arranged per cohort city (community hub / co-working space)",
+              "agenda": [
+                "Each learner presents one piece of content they made during the program (3 minutes each)",
+                "Peer feedback round in small groups",
+                "Mentor closing remarks + certificates handed out",
+                "Informal networking / creator meet-and-greet"
+              ],
+              "remote_fallback_note": "If a cohort can't gather in person, this lesson can be substituted with the live_online type — intentionally the one lesson most likely to vary by cohort/city."
+            }
+          },
+          {
+            "id": "lsn_5_2",
+            "module_id": "mod_5_capstone",
+            "order": 2,
+            "type": "text",
+            "title": "Wrap-Up & Your 90-Day Plan",
+            "estimated_minutes": 5,
+            "content": {
+              "body": "You've now got a niche statement, a content calendar system, a batch-filming and editing workflow, and a basic growth routine. The program ends here, but your content shouldn't.\n\nBefore you go, write down three things:\n1. Your posting cadence for the next 90 days — pick the number from Lesson 2.1, and commit to it in writing.\n2. One metric you'll actually check weekly — from Lesson 4.2, pick just one.\n3. One person from today's meetup (or this cohort) you'll check in with in 30 days — accountability partners outperform solo effort almost every time.\n\nThank you for showing up for five weeks. Now go post something."
+            }
+          },
+          {
+            "id": "lsn_5_3",
+            "module_id": "mod_5_capstone",
+            "order": 3,
+            "type": "attachment",
+            "title": "Certificate & Final Checklist",
+            "estimated_minutes": 3,
+            "content": {
+              "file_name": "content-creation-101-certificate-and-checklist.pdf",
+              "file_type": "application/pdf",
+              "url": "https://example-media-host.test/attachments/certificate-and-checklist.pdf",
+              "description": "A two-page document.",
+              "sections": [
+                "Page 1: Certificate of Completion (learner name, cohort, completion date, mentor signature)",
+                "Page 2: A one-page \"Creator Starter Checklist\" summarizing every worksheet/framework from the program"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "message_templates": [
+    {
+      "id": "tmpl_lesson_ready_v1",
+      "name": "lesson_ready_v1",
+      "status": "meta_approved",
+      "approved_body": "Hi {{1}}! \ud83d\udc4b Your next lesson, *{{2}}*, is ready. Reply DONE once you've gone through it, or ask a question anytime.",
+      "variables": [
+        { "slot": "{{1}}", "meaning": "learner first name" },
+        { "slot": "{{2}}", "meaning": "lesson title" }
+      ]
+    }
+  ],
+  "signals_demo": [
+    {
+      "type": "lesson_overdue",
+      "trigger_condition": "Lesson 2.1 not opened within 3 days of drip send",
+      "example_lesson_id": "lsn_2_1"
+    },
+    {
+      "type": "quiz_failed",
+      "trigger_condition": "Lesson 2.3 quiz failed twice",
+      "example_lesson_id": "lsn_2_3"
+    }
+  ]
+}

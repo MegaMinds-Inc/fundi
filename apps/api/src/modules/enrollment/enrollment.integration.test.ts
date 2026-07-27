@@ -49,6 +49,8 @@ async function seedOrg(orgId: string): Promise<Fixture> {
       phone: `${PHONE_PREFIX}${orgId.length}`,
     },
   });
+  // Both seed programs are `published`: invite() now gates on publish state
+  // (ADR-014), so a draft seed would make every existing invite test fail.
   const publicProgram = await raw.program.create({
     data: {
       organisationId: orgId,
@@ -56,6 +58,8 @@ async function seedOrg(orgId: string): Promise<Fixture> {
       title: `Public program (${orgId})`,
       shape: 'self_paced',
       visibility: 'public',
+      status: 'published',
+      publishedAt: new Date(),
     },
   });
   const privateProgram = await raw.program.create({
@@ -65,6 +69,8 @@ async function seedOrg(orgId: string): Promise<Fixture> {
       title: `Private program (${orgId})`,
       shape: 'cohort',
       visibility: 'private',
+      status: 'published',
+      publishedAt: new Date(),
     },
   });
   const cohort = await raw.cohort.create({
@@ -248,6 +254,64 @@ describe('EnrollmentService (integration — needs Postgres)', () => {
     const cohort = roster.cohorts.find((c) => c.id === orgA.cohortId);
     assert.ok(cohort, 'expected the real cohort to appear');
     assert.ok(cohort?.roster.some((r) => r.name === 'Esi' && r.state === 'active'));
+  });
+
+  it('invite() into a DRAFT program is rejected (program_not_published)', async (t) => {
+    if (!dbAvailable) return t.skip('no reachable Postgres at DATABASE_URL');
+    // A brand-new draft program (status defaults to `draft`).
+    const draft = await raw.program.create({
+      data: {
+        organisationId: ORG_A,
+        ownerMentorId: orgA.mentorId,
+        title: 'Draft program',
+        shape: 'self_paced',
+        visibility: 'public',
+      },
+    });
+    await assert.rejects(
+      () =>
+        runWithOrgContext({ organisationId: ORG_A }, () =>
+          enrollment.invite(draft.id, null, '024 900 1120', 'TooEarly'),
+        ),
+      (err: unknown) => {
+        assert.ok(err instanceof ConflictException, 'a draft invite must be a 409 conflict');
+        assert.equal((err.getResponse() as { code: string }).code, 'program_not_published');
+        return true;
+      },
+    );
+    // Nothing should have been written for the rejected invite.
+    const count = await raw.enrollment.count({ where: { programId: draft.id } });
+    assert.equal(count, 0, 'a rejected invite must not create an enrollment');
+  });
+
+  it('invite() is allowed once the same program is published', async (t) => {
+    if (!dbAvailable) return t.skip('no reachable Postgres at DATABASE_URL');
+    const program = await raw.program.create({
+      data: {
+        organisationId: ORG_A,
+        ownerMentorId: orgA.mentorId,
+        title: 'Publish-then-invite program',
+        shape: 'self_paced',
+        visibility: 'public',
+      },
+    });
+    // Draft first → rejected.
+    await assert.rejects(
+      () =>
+        runWithOrgContext({ organisationId: ORG_A }, () =>
+          enrollment.invite(program.id, null, '024 900 1121', 'Later'),
+        ),
+      ConflictException,
+    );
+    // Publish it, then the very same invite succeeds.
+    await raw.program.update({
+      where: { id: program.id },
+      data: { status: 'published', publishedAt: new Date() },
+    });
+    const result = await runWithOrgContext({ organisationId: ORG_A }, () =>
+      enrollment.invite(program.id, null, '024 900 1121', 'Later'),
+    );
+    assert.equal(result.state, 'active', 'invite into a published public program lands active');
   });
 
   it("org isolation: org A cannot approve or see org B's enrollment", async (t) => {

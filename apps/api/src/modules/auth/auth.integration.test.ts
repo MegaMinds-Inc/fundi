@@ -366,9 +366,15 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
     );
   });
 
-  it('theft (reuse) revokes the device row; a benign race does NOT (0010 §7.4)', async (t) => {
+  it('theft (reuse) revokes the FAMILY but LEAVES device trust intact (0010 Fix 1)', async (t) => {
     if (!dbAvailable) return t.skip('no DB');
-    // --- theft path revokes device trust ---
+    // Fix 1 reverses the earlier §7.4 hardening: a refresh-reuse signal is too
+    // race-prone to safely de-enroll a device on (the proactive-refresh middleware
+    // rotates on nearly every navigation, so a stale token from another tab trips
+    // this branch during normal browsing). Killing the session is correct; costing
+    // the user their device enrollment is not — a device cookie alone can't mint a
+    // session (a PIN is still required) and the family is already revoked. Device
+    // trust is now revoked ONLY by explicit device/forget and PIN lockout.
     const theftAccount = await seedAccount('10008');
     const theftDevice = await raw.trustedDevice.create({
       data: { accountId: theftAccount, app: AppClient.creator, tokenHash: `td_${theftAccount}` },
@@ -378,21 +384,31 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
       app: AppClient.creator,
     });
     await tokens.rotateRefreshToken(issued.token); // `issued` now revoked
-    // Age past the benign-race grace window → genuine reuse-after-detection (F4).
+    // Age past the benign-race grace window → genuine reuse-after-detection.
     await raw.refreshToken.updateMany({
       where: { familyId: issued.familyId, replacedById: { not: null } },
       data: { revokedAt: new Date(Date.now() - (REFRESH_REUSE_GRACE_MS + 60_000)) },
     });
     await assert.rejects(
-      () => tokens.rotateRefreshToken(issued.token), // replay = theft
+      () => tokens.rotateRefreshToken(issued.token), // replay = reuse/theft
       (e: unknown) =>
         e instanceof HttpException &&
         (e.getResponse() as { code?: string }).code === 'invalid_grant',
     );
-    const revokedDevice = await raw.trustedDevice.findUnique({ where: { id: theftDevice.id } });
-    assert.ok(revokedDevice?.revokedAt, 'detected theft must revoke device trust');
+    // (a) the whole refresh family is revoked (session killed).
+    const liveInFamily = await raw.refreshToken.count({
+      where: { familyId: issued.familyId, revokedAt: null },
+    });
+    assert.equal(liveInFamily, 0, 'reuse must burn the whole family');
+    // (b) the device row SURVIVES — refresh-reuse no longer de-enrolls (Fix 1).
+    const stillTrusted = await raw.trustedDevice.findUnique({ where: { id: theftDevice.id } });
+    assert.equal(
+      stillTrusted?.revokedAt,
+      null,
+      'refresh-reuse must NOT revoke device trust (Fix 1: only device/forget + PIN lockout do)',
+    );
 
-    // --- benign concurrent race leaves device trust intact ---
+    // --- benign concurrent race likewise leaves both session and device intact ---
     const raceAccount = await seedAccount('10009');
     const raceDevice = await raw.trustedDevice.create({
       data: { accountId: raceAccount, app: AppClient.creator, tokenHash: `td_${raceAccount}` },
@@ -444,7 +460,7 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
     );
   });
 
-  it('H1 grace: replay OUTSIDE the window still burns the family + device trust (F4 intact)', async (t) => {
+  it('H1 grace: replay OUTSIDE the window still burns the family but NOT device trust (Fix 1)', async (t) => {
     if (!dbAvailable) return t.skip('no DB');
     const acct = await seedAccount('10011');
     const device = await raw.trustedDevice.create({
@@ -469,11 +485,17 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
       rows.every((r) => r.revokedAt != null),
       'genuine reuse must burn the whole family',
     );
-    const revoked = await raw.trustedDevice.findUnique({ where: { id: device.id } });
-    assert.ok(revoked?.revokedAt, 'genuine reuse must revoke device trust (F4)');
+    // Fix 1: the device row survives even genuine reuse (only device/forget + PIN
+    // lockout de-enroll; refresh-reuse is too race-prone to).
+    const stillTrusted = await raw.trustedDevice.findUnique({ where: { id: device.id } });
+    assert.equal(
+      stillTrusted?.revokedAt,
+      null,
+      'genuine reuse must NOT revoke device trust (Fix 1)',
+    );
   });
 
-  it('H1 grace: replay within the window but AFTER the replacement itself rotates → theft', async (t) => {
+  it('H1 grace: replay within the window but AFTER the replacement itself rotates → family burned, device kept', async (t) => {
     if (!dbAvailable) return t.skip('no DB');
     // The replacement being itself revoked/rotated is the true
     // reuse-after-detection signature even inside the time window.
@@ -486,15 +508,24 @@ describe('Refresh rotation + reuse detection (C.2.2)', () => {
     await tokens.rotateRefreshToken(second.token); // second now rotated too (chain moved on)
 
     // `first` was revoked ~now (within the window), but its replacement `second`
-    // is no longer live → not a single-rotation race → theft.
+    // is no longer live → not a single-rotation race → reuse.
     await assert.rejects(
       () => tokens.rotateRefreshToken(first.token),
       (e: unknown) =>
         e instanceof HttpException &&
         (e.getResponse() as { code?: string }).code === 'invalid_grant',
     );
-    const revoked = await raw.trustedDevice.findUnique({ where: { id: device.id } });
-    assert.ok(revoked?.revokedAt, 'a moved-on chain replayed is theft → device trust revoked (F4)');
+    const liveInFamily = await raw.refreshToken.count({
+      where: { familyId: first.familyId, revokedAt: null },
+    });
+    assert.equal(liveInFamily, 0, 'a moved-on chain replayed burns the whole family');
+    // Fix 1: device trust survives regardless.
+    const stillTrusted = await raw.trustedDevice.findUnique({ where: { id: device.id } });
+    assert.equal(
+      stillTrusted?.revokedAt,
+      null,
+      'a moved-on chain replayed must NOT revoke device trust (Fix 1)',
+    );
   });
 
   it('carries the app through rotation (a creator token stays a creator token)', async (t) => {

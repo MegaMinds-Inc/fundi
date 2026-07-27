@@ -149,9 +149,18 @@ export class TokenService {
    *   (b) absolute — `now > familyExpiresAt`                         → `session_expired`
    * Both send the user to a free PIN step-up (not OTP). Reuse/theft and the
    * concurrent-race loser keep returning `invalid_grant` (§6): the race loser
-   * must silently retry, the theft victim must be forced to OTP. Detected theft
-   * ALSO revokes the account's device trust for this app (§7.4) so the attacker
-   * cannot PIN back in; the benign race must NOT touch device trust.
+   * must silently retry, the theft victim must be forced to OTP.
+   *
+   * Reuse/theft revokes only the FAMILY — never the account's device trust. A
+   * refresh-reuse signal (a benign cross-runtime race OR a genuine stolen token)
+   * is too race-prone to safely de-enroll a device on: the proactive-refresh
+   * middleware rotates on nearly every navigation, so a slightly-stale token from
+   * another tab/render can trip this branch during normal browsing. Killing the
+   * session there is correct and cheap (the user re-auths); costing them their
+   * device enrollment is not, and is unnecessary — a device cookie ALONE cannot
+   * mint a session (a PIN is still required) and the family is already revoked.
+   * Device trust is revoked ONLY by explicit `device/forget` ("Not you?") and
+   * (unchanged) PIN lockout — the two deliberate, non-race controls.
    */
   async rotateRefreshToken(rawToken: string): Promise<RotatedRefreshToken> {
     const tokenHash = this.hashToken(rawToken);
@@ -165,8 +174,9 @@ export class TokenService {
     if (row.revokedAt) {
       // The presented token was already rotated away. This is USUALLY theft — a
       // replay of a token we retired — and burns the whole family so a stolen
-      // token cannot outlive its detection, plus revokes device trust so the
-      // attacker cannot re-enter via PIN (§7.4).
+      // token cannot outlive its detection. It does NOT touch device trust:
+      // refresh-reuse is too race-prone to de-enroll on (see the method doc),
+      // and a device cookie alone cannot mint a session anyway.
       //
       // BUT a benign cross-tab/prefetch refresh race is indistinguishable from a
       // replay at the HTTP layer: two isolates each present the same still-valid
@@ -186,7 +196,7 @@ export class TokenService {
       // Tradeoff: an attacker replaying a stolen token who happens to land inside
       // this sub-5s window immediately after a legit rotation escapes family
       // revocation on THAT call — vanishingly unlikely — but any reuse outside
-      // the window still trips it. Device trust is NEVER revoked on the grace path.
+      // the window still trips it.
       const replacement = row.replacedById
         ? await this.prisma.client.refreshToken.findUnique({ where: { id: row.replacedById } })
         : null;
@@ -196,8 +206,11 @@ export class TokenService {
       if (withinGrace && oneLegitRotation) {
         throw this.invalidGrant('Refresh token already rotated — concurrent refresh.');
       }
+      // Kill the session (family) but NOT the device enrollment: refresh-reuse is
+      // revoked only here at the family level. Device-trust de-enrollment is left
+      // to the explicit `device/forget` action and PIN lockout — never a refresh
+      // race, which this branch cannot reliably tell from genuine theft.
       await this.revokeFamily(row.familyId);
-      await this.revokeDeviceTrust(row.accountId, row.app);
       throw this.invalidGrant('Refresh token reuse detected — session revoked.');
     }
 
@@ -267,18 +280,6 @@ export class TokenService {
   private async revokeFamily(familyId: string): Promise<void> {
     await this.prisma.client.refreshToken.updateMany({
       where: { familyId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-  }
-
-  /**
-   * Revoke the account's device trust for this app on detected theft (§7.4).
-   * Done via Prisma directly (not by injecting TrustedDeviceService) to avoid a
-   * DI cycle. Only the reuse/theft branch calls this — never the benign race.
-   */
-  private async revokeDeviceTrust(accountId: string, app: AppClient): Promise<void> {
-    await this.prisma.client.trustedDevice.updateMany({
-      where: { accountId, app, revokedAt: null },
       data: { revokedAt: new Date() },
     });
   }

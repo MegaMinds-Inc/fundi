@@ -17,7 +17,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   });
 
   if (result.kind === 'reauth') return NextResponse.json({ error: 'reauth' }, { status: 401 });
-  if (result.kind === 'retryable')
+  if (result.kind === 'unreachable' || result.kind === 'retryable')
     return NextResponse.json({ error: 'retryable' }, { status: 503 });
   if (result.kind === 'error') {
     return NextResponse.json({ error: 'onboarding_failed' }, { status: result.status });

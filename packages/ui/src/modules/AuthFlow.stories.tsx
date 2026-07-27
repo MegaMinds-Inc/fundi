@@ -67,16 +67,14 @@ export const PinSetupLight: Story = {
 
 /**
  * Forgot-PIN reset (0010 §4.6/§12.6). Start on PIN entry and click "Forgot PIN?":
- * that fires the server-driven reset SMS, then AuthFlow drives an OTP(reset) →
- * new-PIN sub-flow — no phone shown, no "Change number", no resend, no second
- * send — and submits the code + new PIN together via `onResetPin`. Enter any 6
- * digits for the code, then choose + confirm a strong PIN. Demo `onResetPin`
- * accepts any strong, matching PIN.
+ * AuthFlow routes to phone entry, then an OTP(reset) → new-PIN sub-flow — the
+ * user enters their number, gets a code, and submits phone + code + new PIN
+ * together via `onResetPin`. Enter any 9–12 digit number, any 6-digit code, then
+ * choose + confirm a strong PIN. Demo `onResetPin` accepts any strong, matching PIN.
  */
 export const ForgotPinReset: Story = {
   args: {
     initialStep: 'pin-entry',
-    onForgotPin: async () => {},
     onResetPin: async () => true,
   },
 };
@@ -87,7 +85,6 @@ export const ForgotPinResetLight: Story = {
   args: {
     initialStep: 'pin-entry',
     appName: 'your Learner home',
-    onForgotPin: async () => {},
     onResetPin: async () => true,
   },
 };

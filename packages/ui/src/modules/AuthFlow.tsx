@@ -51,22 +51,17 @@ export interface AuthFlowProps {
    */
   onSetPin?: (pin: string) => Promise<boolean>;
   /**
-   * "Forgot PIN?" — server-driven OTP send for reset (0010 §12.6). The client
-   * holds no phone on this path; the BFF resolves it. Defaults to a no-op.
-   * Rejecting keeps the user on `pin-entry` (e.g. offline / send failed).
-   */
-  onForgotPin?: () => Promise<void>;
-  /**
    * Forgot-PIN reset submit (0010 §4.6/§12.6). When provided, "Forgot PIN?"
-   * drives an OTP-entry (reset mode) → new-PIN sub-flow that captures the SMS'd
-   * code and the new PIN entirely client-side (no phone shown, no second OTP
-   * send, no server verify of the code alone), then submits BOTH here in ONE
-   * call. Resolve `true` to advance to success (signed in); `false` on a weak/
-   * invalid PIN (422) or a rejected reset (401) re-prompts the new-PIN entry —
-   * the app surfaces the specifics. Absent → "Forgot PIN?" only fires
-   * `onForgotPin` (legacy no-reset behavior).
+   * drives a PHONE → OTP(reset) → new-PIN sub-flow: the user re-enters their
+   * phone number (the device may be revoked, so it can't be server-resolved), an
+   * OTP is sent via `onRequestOtp`, and the SMS'd code + the new PIN are submitted
+   * together here in ONE call (no server verify of the code alone). Receives the
+   * entered `phone`, the reset `code`, and the new `pin`. Resolve `true` to
+   * advance to success (signed in); `false` on a weak/invalid PIN (422) or a
+   * rejected reset (401) re-prompts the new-PIN entry — the app surfaces the
+   * specifics. Absent → "Forgot PIN?" is inert.
    */
-  onResetPin?: (code: string, pin: string) => Promise<boolean>;
+  onResetPin?: (phone: string, code: string, pin: string) => Promise<boolean>;
   /**
    * "Not you?" — clears the httpOnly trusted-device cookie server-side
    * (`/auth/device/forget`, 0010 §12.4) before returning to phone entry. A
@@ -149,7 +144,6 @@ export function AuthFlow({
   initialStep = 'phone',
   onVerifyPin,
   onSetPin,
-  onForgotPin,
   onResetPin,
   onForgetDevice,
   displayName,
@@ -170,11 +164,12 @@ export function AuthFlow({
   const [setupStage, setSetupStage] = useState<'enter' | 'confirm'>('enter');
   const [firstPin, setFirstPin] = useState('');
 
-  // Forgot-PIN reset sub-flow (0010 §4.6/§12.6). `resetMode` re-routes the OTP
-  // step to stash the code and advance to `pin-setup` (instead of verifying the
-  // code alone), and `pin-setup` submit to `onResetPin(stashedCode, newPin)` —
-  // one call that carries both. `false` (the enrollment default) leaves every
-  // existing path untouched.
+  // Forgot-PIN reset sub-flow (0010 §4.6/§12.6). `resetMode` re-routes the flow
+  // through phone → OTP → new-PIN: the phone step sends the reset OTP (reusing
+  // `onRequestOtp`), the OTP step stashes the code and advances to `pin-setup`
+  // (instead of verifying the code alone), and the `pin-setup` submit calls
+  // `onResetPin(phone, stashedCode, newPin)` — one call carrying all three.
+  // `false` (the enrollment default) leaves every existing path untouched.
   const [resetMode, setResetMode] = useState(false);
   const [resetCode, setResetCode] = useState('');
 
@@ -320,10 +315,11 @@ export function AuthFlow({
     }
     setVerifying(true);
     setPinError(null);
-    // Reset mode submits the stashed OTP + the new PIN in ONE call; normal setup
-    // persists the new PIN under session auth. Both resolve `true` to advance.
+    // Reset mode submits the entered phone + stashed OTP + the new PIN in ONE
+    // call; normal setup persists the new PIN under session auth. Both resolve
+    // `true` to advance.
     const ok = resetMode
-      ? await (onResetPin ?? (() => Promise.resolve(true)))(resetCode, entered)
+      ? await (onResetPin ?? (() => Promise.resolve(true)))(digitsOf(phone), resetCode, entered)
       : await (onSetPin ?? (() => Promise.resolve(true)))(entered);
     setVerifying(false);
     if (ok) {
@@ -343,32 +339,25 @@ export function AuthFlow({
     }
   }
 
-  async function forgotPin(): Promise<void> {
+  function forgotPin(): void {
     if (verifying) return;
-    // Fire the server-driven reset SMS. A rejection (offline / send failed /
-    // rate-limited) keeps the user on pin-entry — the app shows the reason.
-    setVerifying(true);
-    try {
-      await (onForgotPin ?? (() => Promise.resolve()))();
-    } catch {
-      setVerifying(false);
-      return;
-    }
-    setVerifying(false);
-    // With a reset handler wired, drive the OTP(reset) → new-PIN sub-flow in-
-    // place (0010 §12.6): no phone shown, no second send. Without one, "Forgot
-    // PIN?" keeps its legacy no-op-after-send behavior.
-    if (onResetPin) {
-      setResetMode(true);
-      setResetCode('');
-      setCode('');
-      setOtpError(null);
-      setPin('');
-      setPinError(null);
-      setFirstPin('');
-      setSetupStage('enter');
-      setStep('otp');
-    }
+    // Forgot-PIN is now phone-driven (0010 §12.6 / Fix 3): the device may be
+    // revoked, so we can't server-resolve the number. Enter reset mode and route
+    // to phone entry; from there the normal phone → OTP machinery sends the reset
+    // code, and the OTP(reset) → new-PIN sub-flow submits phone + code + new PIN
+    // together via `onResetPin`. Inert without a reset handler wired.
+    if (!onResetPin) return;
+    setResetMode(true);
+    setResetCode('');
+    setPhone('');
+    setPhoneError(null);
+    setCode('');
+    setOtpError(null);
+    setPin('');
+    setPinError(null);
+    setFirstPin('');
+    setSetupStage('enter');
+    setStep('phone');
   }
 
   async function forgetDevice(): Promise<void> {
@@ -420,9 +409,9 @@ export function AuthFlow({
           </h2>
           <p style={sub}>
             {resetMode
-              ? // Reset mode (0010 §12.3): no client-held phone → no number shown,
-                // no "Change number", no resend.
-                `Enter the ${otpLength}-digit code we texted you to reset your PIN.`
+              ? // Reset mode (0010 §12.6): the user just entered their number, so
+                // the code + number are shown exactly like enrollment.
+                `Enter the ${otpLength}-digit code we texted to ${phone.trim()} to reset your PIN.`
               : `We sent a ${otpLength}-digit code to ${phone.trim()}.`}
           </p>
         </div>
@@ -448,23 +437,21 @@ export function AuthFlow({
             {otpError}
           </p>
         )}
-        {!resetMode && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setStep('phone');
-                setCode('');
-                setOtpError(null);
-              }}
-            >
-              Change number
-            </Button>
-            <Button variant="ghost" disabled={cooldown > 0 || verifying} onClick={resend}>
-              {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
-            </Button>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setStep('phone');
+              setCode('');
+              setOtpError(null);
+            }}
+          >
+            Change number
+          </Button>
+          <Button variant="ghost" disabled={cooldown > 0 || verifying} onClick={resend}>
+            {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -562,9 +549,13 @@ export function AuthFlow({
     <div style={column}>
       <div>
         <h2 ref={headingRef} tabIndex={-1} style={heading}>
-          Sign in
+          {resetMode ? 'Reset your PIN' : 'Sign in'}
         </h2>
-        <p style={sub}>Enter your phone number to get a one-time code for {appName}.</p>
+        <p style={sub}>
+          {resetMode
+            ? `Enter your phone number and we'll text you a code to reset your PIN for ${appName}.`
+            : `Enter your phone number to get a one-time code for ${appName}.`}
+        </p>
       </div>
       <PhoneInput
         value={phone}
