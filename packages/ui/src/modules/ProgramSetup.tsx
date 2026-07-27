@@ -28,11 +28,36 @@ export interface ProgramShapeOption {
 
 /** Maps 1:1 to the `Program.shape` schema enum. */
 export const SHAPES: readonly ProgramShapeOption[] = [
-  { value: 'self_paced', label: 'Self-paced', icon: 'ph-fast-forward', desc: 'Learners move through modules on their own schedule.' },
-  { value: 'cohort', label: 'Cohort', icon: 'ph-users-three', desc: 'A group moves through the program together, on a schedule.' },
-  { value: 'one_to_one', label: 'One-to-one', icon: 'ph-user-focus', desc: 'A single learner, individually mentored.' },
-  { value: 'workshop', label: 'Workshop', icon: 'ph-chalkboard-teacher', desc: 'A short, focused live-taught session or series.' },
-  { value: 'hybrid', label: 'Hybrid', icon: 'ph-shuffle', desc: 'Mix of self-paced content and scheduled live sessions.' },
+  {
+    value: 'self_paced',
+    label: 'Self-paced',
+    icon: 'ph-fast-forward',
+    desc: 'Learners move through modules on their own schedule.',
+  },
+  {
+    value: 'cohort',
+    label: 'Cohort',
+    icon: 'ph-users-three',
+    desc: 'A group moves through the program together, on a schedule.',
+  },
+  {
+    value: 'one_to_one',
+    label: 'One-to-one',
+    icon: 'ph-user-focus',
+    desc: 'A single learner, individually mentored.',
+  },
+  {
+    value: 'workshop',
+    label: 'Workshop',
+    icon: 'ph-chalkboard-teacher',
+    desc: 'A short, focused live-taught session or series.',
+  },
+  {
+    value: 'hybrid',
+    label: 'Hybrid',
+    icon: 'ph-shuffle',
+    desc: 'Mix of self-paced content and scheduled live sessions.',
+  },
 ] as const;
 
 export interface ProgramVisibilityOption {
@@ -44,8 +69,18 @@ export interface ProgramVisibilityOption {
 
 /** Maps 1:1 to the `Program.visibility` schema enum. */
 export const VISIBILITIES: readonly ProgramVisibilityOption[] = [
-  { value: 'public', label: 'Public', icon: 'ph-globe', desc: 'Anyone with the link can join instantly.' },
-  { value: 'private', label: 'Private, approval-gated', icon: 'ph-lock-key', desc: 'Learners request to join; you approve each one.' },
+  {
+    value: 'public',
+    label: 'Public',
+    icon: 'ph-globe',
+    desc: 'Anyone with the link can join instantly.',
+  },
+  {
+    value: 'private',
+    label: 'Private, approval-gated',
+    icon: 'ph-lock-key',
+    desc: 'Learners request to join; you approve each one.',
+  },
 ] as const;
 
 const COVER_STYLES: readonly CoverStyle[] = ['gradient', 'geometric'] as const;
@@ -143,7 +178,14 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
           }}
         >
           <i className="ph ph-image" style={{ fontSize: 26 }} />
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 12.5, color: 'var(--color-text-muted)' }}>
+          <div
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 700,
+              fontSize: 12.5,
+              color: 'var(--color-text-muted)',
+            }}
+          >
             Image upload coming soon
           </div>
           <div style={{ fontSize: 11, lineHeight: 1.5, maxWidth: 320 }}>
@@ -177,7 +219,9 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
                   padding: '14px 16px',
                   borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
-                  background: selected ? 'var(--color-accent-primary-soft)' : 'var(--color-bg-surface)',
+                  background: selected
+                    ? 'var(--color-accent-primary-soft)'
+                    : 'var(--color-bg-surface)',
                   boxShadow: selected
                     ? 'inset 0 0 0 1.5px var(--color-accent-primary)'
                     : 'inset 0 0 0 1px var(--color-border-subtle)',
@@ -192,10 +236,26 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
                   }}
                 />
                 <div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--color-text-heading)' }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: 'var(--color-text-heading)',
+                    }}
+                  >
                     {s.label}
                   </div>
-                  <div style={{ fontSize: 11.5, color: 'var(--color-text-muted)', marginTop: 2, lineHeight: 1.5 }}>{s.desc}</div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: 'var(--color-text-muted)',
+                      marginTop: 2,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {s.desc}
+                  </div>
                 </div>
               </div>
             );
@@ -228,7 +288,9 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
                   padding: '14px 16px',
                   borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
-                  background: selected ? 'var(--color-accent-primary-soft)' : 'var(--color-bg-surface)',
+                  background: selected
+                    ? 'var(--color-accent-primary-soft)'
+                    : 'var(--color-bg-surface)',
                   boxShadow: selected
                     ? 'inset 0 0 0 1.5px var(--color-accent-primary)'
                     : 'inset 0 0 0 1px var(--color-border-subtle)',
@@ -236,13 +298,25 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
               >
                 <i
                   className={'ph ' + v.icon}
-                  style={{ fontSize: 19, color: selected ? 'var(--color-accent-primary)' : 'var(--color-text-faint)' }}
+                  style={{
+                    fontSize: 19,
+                    color: selected ? 'var(--color-accent-primary)' : 'var(--color-text-faint)',
+                  }}
                 />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--color-text-heading)' }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: 'var(--color-text-heading)',
+                    }}
+                  >
                     {v.label}
                   </div>
-                  <div style={{ fontSize: 11.5, color: 'var(--color-text-muted)', marginTop: 2 }}>{v.desc}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                    {v.desc}
+                  </div>
                 </div>
               </div>
             );
@@ -252,10 +326,22 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
 
       <div>
         <div style={{ ...sectionLabel, marginBottom: 4 }}>Module covers</div>
-        <div style={{ fontSize: 11.5, color: 'var(--color-text-faint)', marginBottom: 12, lineHeight: 1.5 }}>
-          Chosen once for the whole program — every module gets its own look automatically, no per-module effort.
+        <div
+          style={{
+            fontSize: 11.5,
+            color: 'var(--color-text-faint)',
+            marginBottom: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          Chosen once for the whole program — every module gets its own look automatically, no
+          per-module effort.
         </div>
-        <div role="radiogroup" aria-label="Module cover style" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div
+          role="radiogroup"
+          aria-label="Module cover style"
+          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
+        >
           {COVER_STYLES.map((cs) => {
             const selected = coverStyle === cs;
             return (
@@ -303,7 +389,10 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
                       boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
                     }}
                   >
-                    <i className="ph ph-check" style={{ fontSize: 12, fontWeight: 700, color: '#fff' }} />
+                    <i
+                      className="ph ph-check"
+                      style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}
+                    />
                   </div>
                 )}
                 <div
@@ -328,7 +417,12 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
                   >
                     {cs}
                   </span>
-                  {selected && <i className="ph ph-check-circle" style={{ fontSize: 15, color: 'var(--color-accent-primary)' }} />}
+                  {selected && (
+                    <i
+                      className="ph ph-check-circle"
+                      style={{ fontSize: 15, color: 'var(--color-accent-primary)' }}
+                    />
+                  )}
                 </div>
               </div>
             );
@@ -336,7 +430,12 @@ export function ProgramSetup({ value, onChange, onContinue }: ProgramSetupProps)
         </div>
       </div>
 
-      <Button variant="primary" disabled={!canContinue} onClick={onContinue} style={{ width: '100%', justifyContent: 'center' }}>
+      <Button
+        variant="primary"
+        disabled={!canContinue}
+        onClick={onContinue}
+        style={{ width: '100%', justifyContent: 'center' }}
+      >
         Continue to builder
       </Button>
     </div>

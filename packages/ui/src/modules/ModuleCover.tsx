@@ -46,16 +46,56 @@ interface GeoShape {
 
 const GEO_SHAPES: GeoShape[][] = [
   [
-    { kind: 'square', size: 70, color: 'var(--base-green-500)', opacity: 0.35, rotate: 18, top: -22, left: -14 },
-    { kind: 'triangle', size: 64, color: 'var(--base-teal-500)', opacity: 0.3, rotate: 8, bottom: -18, right: 6 },
+    {
+      kind: 'square',
+      size: 70,
+      color: 'var(--base-green-500)',
+      opacity: 0.35,
+      rotate: 18,
+      top: -22,
+      left: -14,
+    },
+    {
+      kind: 'triangle',
+      size: 64,
+      color: 'var(--base-teal-500)',
+      opacity: 0.3,
+      rotate: 8,
+      bottom: -18,
+      right: 6,
+    },
   ],
   [
-    { kind: 'triangle', size: 78, color: 'var(--base-green-500)', opacity: 0.3, rotate: -10, top: -30, left: '20%' },
-    { kind: 'square', size: 56, color: 'var(--base-teal-500)', opacity: 0.32, rotate: 38, bottom: -16, right: -10 },
+    {
+      kind: 'triangle',
+      size: 78,
+      color: 'var(--base-green-500)',
+      opacity: 0.3,
+      rotate: -10,
+      top: -30,
+      left: '20%',
+    },
+    {
+      kind: 'square',
+      size: 56,
+      color: 'var(--base-teal-500)',
+      opacity: 0.32,
+      rotate: 38,
+      bottom: -16,
+      right: -10,
+    },
   ],
   [
     { kind: 'circle', size: 60, color: 'var(--base-green-600)', opacity: 0.4, top: 10, left: -18 },
-    { kind: 'square', size: 50, color: 'var(--base-teal-500)', opacity: 0.28, rotate: 24, bottom: -14, right: 16 },
+    {
+      kind: 'square',
+      size: 50,
+      color: 'var(--base-teal-500)',
+      opacity: 0.28,
+      rotate: 24,
+      bottom: -14,
+      right: 16,
+    },
   ],
 ];
 
@@ -95,11 +135,25 @@ function Shape({ shape }: { shape: GeoShape }) {
   );
 }
 
-export function ModuleCover({ coverStyle, seed = 0, height = 92, children, style }: ModuleCoverProps) {
+export function ModuleCover({
+  coverStyle,
+  seed = 0,
+  height = 92,
+  children,
+  style,
+}: ModuleCoverProps) {
   const idx = ((seed % 3) + 3) % 3;
   if (coverStyle === 'geometric') {
     return (
-      <div style={{ position: 'relative', height, overflow: 'hidden', background: 'var(--base-ink-900)', ...style }}>
+      <div
+        style={{
+          position: 'relative',
+          height,
+          overflow: 'hidden',
+          background: 'var(--base-ink-900)',
+          ...style,
+        }}
+      >
         {GEO_SHAPES[idx].map((s, i) => (
           <Shape key={i} shape={s} />
         ))}
@@ -108,7 +162,15 @@ export function ModuleCover({ coverStyle, seed = 0, height = 92, children, style
     );
   }
   return (
-    <div style={{ position: 'relative', height, overflow: 'hidden', background: GRADIENTS[idx], ...style }}>
+    <div
+      style={{
+        position: 'relative',
+        height,
+        overflow: 'hidden',
+        background: GRADIENTS[idx],
+        ...style,
+      }}
+    >
       {children}
     </div>
   );

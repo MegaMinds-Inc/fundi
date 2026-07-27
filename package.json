@@ -14,9 +14,18 @@
     "dev": "turbo run dev",
     "dev:backend": "turbo run dev --filter=@fundi/api",
     "dev:creator": "turbo run dev --filter=@fundi/creator",
-    "dev:learner": "turbo run dev --filter=@fundi/learner"
+    "dev:learner": "turbo run dev --filter=@fundi/learner",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yaml,yml}": "prettier --write"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.2.0",
+    "prettier": "3.9.5",
     "turbo": "2.10.4"
   }
 }

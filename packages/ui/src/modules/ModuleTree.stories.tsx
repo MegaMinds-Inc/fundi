@@ -6,7 +6,16 @@ import type { ModuleTreeModule, ModulePatch } from './ModuleTree';
 
 /** Narrow panel, like the builder's left rail. */
 const rail = (Story: () => ReactNode) => (
-  <div style={{ maxWidth: 340, padding: 12, background: 'var(--color-bg-surface)', borderRadius: 'var(--radius-lg)' }}>{Story()}</div>
+  <div
+    style={{
+      maxWidth: 340,
+      padding: 12,
+      background: 'var(--color-bg-surface)',
+      borderRadius: 'var(--radius-lg)',
+    }}
+  >
+    {Story()}
+  </div>
 );
 
 const meta = {
@@ -55,7 +64,13 @@ const SEED: ModuleTreeModule[] = [
 ];
 
 /** Stateful harness — wires the callbacks so reorder / rename / settings edits mutate in place. */
-function Harness({ initial, activeLessonId }: { initial: ModuleTreeModule[]; activeLessonId?: string | null }) {
+function Harness({
+  initial,
+  activeLessonId,
+}: {
+  initial: ModuleTreeModule[];
+  activeLessonId?: string | null;
+}) {
   const [modules, setModules] = useState(initial);
 
   const move = <T,>(arr: T[], i: number, dir: -1 | 1): T[] => {
@@ -74,18 +89,36 @@ function Harness({ initial, activeLessonId }: { initial: ModuleTreeModule[]; act
       onSelectLesson={() => {}}
       onMoveModule={(idx, dir) => setModules((ms) => move(ms, idx, dir))}
       onMoveLesson={(moduleId, lessonIdx, dir) =>
-        setModules((ms) => ms.map((m) => (m.id === moduleId ? { ...m, lessons: move(m.lessons, lessonIdx, dir) } : m)))
-      }
-      onAddModule={() => setModules((ms) => [...ms, { id: 'm' + (ms.length + 1), title: 'New module', lessons: [] }])}
-      onAddLesson={(moduleId) =>
         setModules((ms) =>
           ms.map((m) =>
-            m.id === moduleId ? { ...m, lessons: [...m.lessons, { id: 'l' + Date.now(), title: 'New lesson', type: 'text' }] } : m,
+            m.id === moduleId ? { ...m, lessons: move(m.lessons, lessonIdx, dir) } : m,
           ),
         )
       }
-      onRenameModule={(moduleId, title) => setModules((ms) => ms.map((m) => (m.id === moduleId ? { ...m, title } : m)))}
-      onUpdateModule={(moduleId, patch: ModulePatch) => setModules((ms) => ms.map((m) => (m.id === moduleId ? { ...m, ...patch } : m)))}
+      onAddModule={() =>
+        setModules((ms) => [...ms, { id: 'm' + (ms.length + 1), title: 'New module', lessons: [] }])
+      }
+      onAddLesson={(moduleId) =>
+        setModules((ms) =>
+          ms.map((m) =>
+            m.id === moduleId
+              ? {
+                  ...m,
+                  lessons: [
+                    ...m.lessons,
+                    { id: 'l' + Date.now(), title: 'New lesson', type: 'text' },
+                  ],
+                }
+              : m,
+          ),
+        )
+      }
+      onRenameModule={(moduleId, title) =>
+        setModules((ms) => ms.map((m) => (m.id === moduleId ? { ...m, title } : m)))
+      }
+      onUpdateModule={(moduleId, patch: ModulePatch) =>
+        setModules((ms) => ms.map((m) => (m.id === moduleId ? { ...m, ...patch } : m)))
+      }
     />
   );
 }
@@ -127,7 +160,12 @@ export const HiddenModule: Story = {
     <Harness
       initial={[
         SEED[0],
-        { id: 'm3', title: 'Bonus (not yet live)', unlockMode: 'hidden', lessons: [{ id: 'l9', title: 'Draft lesson', type: 'text' }] },
+        {
+          id: 'm3',
+          title: 'Bonus (not yet live)',
+          unlockMode: 'hidden',
+          lessons: [{ id: 'l9', title: 'Draft lesson', type: 'text' }],
+        },
       ]}
     />
   ),

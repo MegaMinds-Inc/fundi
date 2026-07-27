@@ -93,7 +93,17 @@ function hasContent(lesson: EditableLesson): boolean {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{label}</span>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: 'var(--color-text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '.07em',
+        }}
+      >
+        {label}
+      </span>
       {children}
     </div>
   );
@@ -190,19 +200,59 @@ export function LessonEditor({ lesson, moduleTitle, onChange, onDelete }: Lesson
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: 24, maxWidth: 520, fontFamily: 'var(--font-body)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10 }}>
-        <Input label="Lesson title" value={lesson.title} onChange={(e) => set('title', e.target.value)} style={{ flex: 1 }} />
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 20,
+        padding: 24,
+        maxWidth: 520,
+        fontFamily: 'var(--font-body)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          gap: 10,
+        }}
+      >
+        <Input
+          label="Lesson title"
+          value={lesson.title}
+          onChange={(e) => set('title', e.target.value)}
+          style={{ flex: 1 }}
+        />
         <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
-          <Button variant="secondary" size="sm" iconOnly aria-label="Preview this lesson" onClick={() => setPreviewOpen(true)} icon={<i className="ph ph-eye" />} />
-          <Button variant="secondary" size="sm" iconOnly aria-label="Delete lesson" onClick={onDelete} icon={<i className="ph ph-trash" />} />
+          <Button
+            variant="secondary"
+            size="sm"
+            iconOnly
+            aria-label="Preview this lesson"
+            onClick={() => setPreviewOpen(true)}
+            icon={<i className="ph ph-eye" />}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            iconOnly
+            aria-label="Delete lesson"
+            onClick={onDelete}
+            icon={<i className="ph ph-trash" />}
+          />
         </div>
       </div>
 
       <Field label="Type">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {TYPES.map((t) => (
-            <Tag key={t} selected={lesson.type === t} color={lesson.type === t ? 'green' : 'neutral'} onClick={() => selectType(t)}>
+            <Tag
+              key={t}
+              selected={lesson.type === t}
+              color={lesson.type === t ? 'green' : 'neutral'}
+              onClick={() => selectType(t)}
+            >
               {TYPE_LABEL[t]}
             </Tag>
           ))}
@@ -211,19 +261,34 @@ export function LessonEditor({ lesson, moduleTitle, onChange, onDelete }: Lesson
 
       {lesson.type === 'text' && (
         <Field label="Body">
-          <Textarea value={lesson.body || ''} onChange={(e) => set('body', e.target.value)} placeholder="Write the lesson content…" />
+          <Textarea
+            value={lesson.body || ''}
+            onChange={(e) => set('body', e.target.value)}
+            placeholder="Write the lesson content…"
+          />
         </Field>
       )}
 
       {lesson.type === 'video' && (
         <>
           <Field label="Embed URL">
-            <Input placeholder="https://youtube.com/watch?v=…" value={lesson.videoUrl || ''} onChange={(e) => set('videoUrl', e.target.value)} iconLeft={<i className="ph ph-link" />} />
+            <Input
+              placeholder="https://youtube.com/watch?v=…"
+              value={lesson.videoUrl || ''}
+              onChange={(e) => set('videoUrl', e.target.value)}
+              iconLeft={<i className="ph ph-link" />}
+            />
           </Field>
           <Field label="Duration">
-            <Input placeholder="e.g. 6:12" value={lesson.duration || ''} onChange={(e) => set('duration', e.target.value)} />
+            <Input
+              placeholder="e.g. 6:12"
+              value={lesson.duration || ''}
+              onChange={(e) => set('duration', e.target.value)}
+            />
           </Field>
-          <div style={{ fontSize: 11, color: 'var(--color-text-faint)', lineHeight: 1.6 }}>Embed-only for now — hosted upload is pending a technical spike.</div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-faint)', lineHeight: 1.6 }}>
+            Embed-only for now — hosted upload is pending a technical spike.
+          </div>
         </>
       )}
 
@@ -247,7 +312,8 @@ export function LessonEditor({ lesson, moduleTitle, onChange, onDelete }: Lesson
             />
           </Field>
           <div style={{ fontSize: 11, color: 'var(--color-text-faint)', lineHeight: 1.6 }}>
-            Paste a public PDF link — it renders in the lesson. File uploads are coming with object storage; PDF-by-link only for now.
+            Paste a public PDF link — it renders in the lesson. File uploads are coming with object
+            storage; PDF-by-link only for now.
           </div>
         </>
       )}
@@ -255,18 +321,34 @@ export function LessonEditor({ lesson, moduleTitle, onChange, onDelete }: Lesson
       {(lesson.type === 'live_online' || lesson.type === 'in_person') && (
         <>
           <Field label="When">
-            <Input placeholder="Thursday, 6:00 PM WAT" value={lesson.when || ''} onChange={(e) => set('when', e.target.value)} iconLeft={<i className="ph ph-calendar" />} />
+            <Input
+              placeholder="Thursday, 6:00 PM WAT"
+              value={lesson.when || ''}
+              onChange={(e) => set('when', e.target.value)}
+              iconLeft={<i className="ph ph-calendar" />}
+            />
           </Field>
           <Field label={lesson.type === 'live_online' ? 'Meeting link' : 'Location'}>
             <Input
-              placeholder={lesson.type === 'live_online' ? 'Zoom / Google Meet link' : 'Address or venue name'}
+              placeholder={
+                lesson.type === 'live_online' ? 'Zoom / Google Meet link' : 'Address or venue name'
+              }
               value={lesson.where || ''}
               onChange={(e) => set('where', e.target.value)}
-              iconLeft={<i className={lesson.type === 'live_online' ? 'ph ph-video-camera' : 'ph ph-map-pin'} />}
+              iconLeft={
+                <i
+                  className={lesson.type === 'live_online' ? 'ph ph-video-camera' : 'ph ph-map-pin'}
+                />
+              }
             />
           </Field>
           <Field label="Notes">
-            <Textarea rows={4} value={lesson.body || ''} onChange={(e) => set('body', e.target.value)} placeholder="Anything learners should prep or bring…" />
+            <Textarea
+              rows={4}
+              value={lesson.body || ''}
+              onChange={(e) => set('body', e.target.value)}
+              placeholder="Anything learners should prep or bring…"
+            />
           </Field>
         </>
       )}
@@ -287,7 +369,13 @@ export function LessonEditor({ lesson, moduleTitle, onChange, onDelete }: Lesson
           pointerEvents: previewOpen ? 'auto' : 'none',
         }}
       >
-        <Drawer open={previewOpen} title="Learner preview" subtitle={moduleTitle || 'Module'} onClose={() => setPreviewOpen(false)} heightPercent="92%">
+        <Drawer
+          open={previewOpen}
+          title="Learner preview"
+          subtitle={moduleTitle || 'Module'}
+          onClose={() => setPreviewOpen(false)}
+          heightPercent="92%"
+        >
           <LessonViewer
             lesson={{
               title: lesson.title,
@@ -330,7 +418,8 @@ export function LessonEditor({ lesson, moduleTitle, onChange, onDelete }: Lesson
         }
       >
         <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-body)' }}>
-          This lesson has {TYPE_LABEL[lesson.type]} content. Switching to {pendingType && TYPE_LABEL[pendingType]} will discard it — this can&apos;t be undone.
+          This lesson has {TYPE_LABEL[lesson.type]} content. Switching to{' '}
+          {pendingType && TYPE_LABEL[pendingType]} will discard it — this can&apos;t be undone.
         </div>
       </Modal>
     </div>

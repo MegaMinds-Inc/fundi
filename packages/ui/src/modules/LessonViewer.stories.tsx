@@ -4,7 +4,16 @@ import { LessonViewer } from './LessonViewer';
 
 /** Reader-width column, like the preview drawer body. */
 const column = (Story: () => ReactNode) => (
-  <div style={{ maxWidth: 460, padding: 20, background: 'var(--color-bg-surface)', borderRadius: 'var(--radius-lg)' }}>{Story()}</div>
+  <div
+    style={{
+      maxWidth: 460,
+      padding: 20,
+      background: 'var(--color-bg-surface)',
+      borderRadius: 'var(--radius-lg)',
+    }}
+  >
+    {Story()}
+  </div>
 );
 
 const meta = {
@@ -29,21 +38,49 @@ export const Text: Story = {
 };
 
 export const Video: Story = {
-  args: { lesson: { moduleTitle: 'Foundations', title: 'Watch: a great sales page', type: 'video', duration: '6:12' } },
+  args: {
+    lesson: {
+      moduleTitle: 'Foundations',
+      title: 'Watch: a great sales page',
+      type: 'video',
+      duration: '6:12',
+    },
+  },
 };
 
 export const Attachment: Story = {
-  args: { lesson: { moduleTitle: 'Foundations', title: 'Worksheet', type: 'attachment', name: 'copywriting-worksheet.pdf', size: '1.2 MB' } },
+  args: {
+    lesson: {
+      moduleTitle: 'Foundations',
+      title: 'Worksheet',
+      type: 'attachment',
+      name: 'copywriting-worksheet.pdf',
+      size: '1.2 MB',
+    },
+  },
 };
 
 export const Live: Story = {
-  args: { lesson: { moduleTitle: 'Live workshop', title: 'Group call', type: 'live_online', when: 'Thursday, 6:00 PM WAT', where: 'https://meet.google.com/abc-defg-hij' } },
+  args: {
+    lesson: {
+      moduleTitle: 'Live workshop',
+      title: 'Group call',
+      type: 'live_online',
+      when: 'Thursday, 6:00 PM WAT',
+      where: 'https://meet.google.com/abc-defg-hij',
+    },
+  },
 };
 
 /** Text lesson on the light theme. */
 export const Light: Story = {
   globals: { theme: 'light' },
   args: {
-    lesson: { moduleTitle: 'Foundations', title: 'Why copy matters', type: 'text', body: 'Good copy is a conversation, not a broadcast.' },
+    lesson: {
+      moduleTitle: 'Foundations',
+      title: 'Why copy matters',
+      type: 'text',
+      body: 'Good copy is a conversation, not a broadcast.',
+    },
   },
 };

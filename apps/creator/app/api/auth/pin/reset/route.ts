@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { APP, pairFromFlat, postPublic, setAuthCookies, setDeviceCookie } from '../../../../lib/bff';
+import {
+  APP,
+  pairFromFlat,
+  postPublic,
+  setAuthCookies,
+  setDeviceCookie,
+} from '../../../../lib/bff';
 
 // POST /api/auth/pin/reset — PHONE-based forgot-PIN reset (feature 0010 §4.6/§12.6).
 // Device-INDEPENDENT: the client sends { phone, otpCode, pin } (the device may be

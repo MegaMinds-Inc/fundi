@@ -38,10 +38,21 @@ export interface PublishBarProps {
   onExit: () => void;
 }
 
-export function PublishBar({ program, hasUnpublishedChanges, saveStatus, onPreview, onPublish, onExit }: PublishBarProps) {
+export function PublishBar({
+  program,
+  hasUnpublishedChanges,
+  saveStatus,
+  onPreview,
+  onPublish,
+  onExit,
+}: PublishBarProps) {
   const published = program.status === 'published';
   const badgeTone = !published ? 'draft' : hasUnpublishedChanges ? 'warn' : 'live';
-  const badgeLabel = !published ? 'Draft' : hasUnpublishedChanges ? 'Unpublished changes' : 'Published';
+  const badgeLabel = !published
+    ? 'Draft'
+    : hasUnpublishedChanges
+      ? 'Unpublished changes'
+      : 'Published';
 
   return (
     <div
@@ -95,8 +106,20 @@ export function PublishBar({ program, hasUnpublishedChanges, saveStatus, onPrevi
           {program.title || 'Untitled program'}
         </div>
         {saveStatus && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, fontSize: 10.5, color: 'var(--color-text-faint)' }}>
-            <i className={saveStatus === 'saving' ? 'ph ph-circle-notch' : 'ph ph-check'} style={{ fontSize: 11 }} />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              marginTop: 2,
+              fontSize: 10.5,
+              color: 'var(--color-text-faint)',
+            }}
+          >
+            <i
+              className={saveStatus === 'saving' ? 'ph ph-circle-notch' : 'ph ph-check'}
+              style={{ fontSize: 11 }}
+            />
             {saveStatus === 'saving' ? 'Saving…' : 'Saved'}
           </div>
         )}
@@ -104,11 +127,23 @@ export function PublishBar({ program, hasUnpublishedChanges, saveStatus, onPrevi
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
         <Badge tone={badgeTone}>{badgeLabel}</Badge>
-        <Button variant="secondary" size="sm" onClick={onPreview} icon={<i className="ph ph-arrow-square-out" />} style={{ whiteSpace: 'nowrap' }}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onPreview}
+          icon={<i className="ph ph-arrow-square-out" />}
+          style={{ whiteSpace: 'nowrap' }}
+        >
           Preview
         </Button>
         {!published ? (
-          <Button variant="primary" size="sm" onClick={onPublish} icon={<i className="ph ph-rocket-launch" />} style={{ whiteSpace: 'nowrap' }}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onPublish}
+            icon={<i className="ph ph-rocket-launch" />}
+            style={{ whiteSpace: 'nowrap' }}
+          >
             Publish
           </Button>
         ) : (

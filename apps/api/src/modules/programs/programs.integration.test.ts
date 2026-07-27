@@ -702,11 +702,7 @@ describe('ProgramsService — Publish / Unpublish (slice 3, needs Postgres)', ()
     await inOrgA(() => programs.updateLesson(lesson.id, { content: { body: 'edited' } }));
     const afterEdit = await inOrgA(() => programs.getProgramDetail(program.id));
     assert.equal(afterEdit.status, 'published', 'still published while editing');
-    assert.equal(
-      afterEdit.hasUnpublishedChanges,
-      true,
-      'an edit after publish lights the badge',
-    );
+    assert.equal(afterEdit.hasUnpublishedChanges, true, 'an edit after publish lights the badge');
 
     await sleep(10);
     const rePublish = await inOrgA(() => programs.publishProgram(program.id));

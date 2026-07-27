@@ -41,31 +41,87 @@ type Story = StoryObj<typeof meta>;
 /** Stateful harness so edits and the type-switch flow are live. */
 function Harness({ initial }: { initial: EditableLesson }) {
   const [lesson, setLesson] = useState<EditableLesson>(initial);
-  return <LessonEditor lesson={lesson} moduleTitle="Foundations" onChange={setLesson} onDelete={() => {}} />;
+  return (
+    <LessonEditor
+      lesson={lesson}
+      moduleTitle="Foundations"
+      onChange={setLesson}
+      onDelete={() => {}}
+    />
+  );
 }
 
 /** No lesson selected. */
 export const NoSelection: Story = { args: { lesson: null } };
 
 export const TextLesson: Story = {
-  render: () => <Harness initial={{ id: 'l1', title: 'Why copy matters', type: 'text', body: 'Good copy is a conversation, not a broadcast…' }} />,
+  render: () => (
+    <Harness
+      initial={{
+        id: 'l1',
+        title: 'Why copy matters',
+        type: 'text',
+        body: 'Good copy is a conversation, not a broadcast…',
+      }}
+    />
+  ),
 };
 
 export const VideoLesson: Story = {
-  render: () => <Harness initial={{ id: 'l2', title: 'Watch: a great sales page', type: 'video', videoUrl: 'https://youtube.com/watch?v=abc', duration: '6:12' }} />,
+  render: () => (
+    <Harness
+      initial={{
+        id: 'l2',
+        title: 'Watch: a great sales page',
+        type: 'video',
+        videoUrl: 'https://youtube.com/watch?v=abc',
+        duration: '6:12',
+      }}
+    />
+  ),
 };
 
 /** Attachment — the drop-zone is deferred (no object storage); rendered disabled. */
 export const AttachmentLesson: Story = {
-  render: () => <Harness initial={{ id: 'l3', title: 'Worksheet', type: 'attachment', fileName: 'copywriting-worksheet.pdf', fileSize: '1.2 MB' }} />,
+  render: () => (
+    <Harness
+      initial={{
+        id: 'l3',
+        title: 'Worksheet',
+        type: 'attachment',
+        fileName: 'copywriting-worksheet.pdf',
+        fileSize: '1.2 MB',
+      }}
+    />
+  ),
 };
 
 export const LiveOnlineLesson: Story = {
-  render: () => <Harness initial={{ id: 'l4', title: 'Group call', type: 'live_online', when: 'Thursday, 6:00 PM WAT', where: 'https://meet.google.com/abc-defg-hij' }} />,
+  render: () => (
+    <Harness
+      initial={{
+        id: 'l4',
+        title: 'Group call',
+        type: 'live_online',
+        when: 'Thursday, 6:00 PM WAT',
+        where: 'https://meet.google.com/abc-defg-hij',
+      }}
+    />
+  ),
 };
 
 export const InPersonLesson: Story = {
-  render: () => <Harness initial={{ id: 'l5', title: 'Meetup in Accra', type: 'in_person', when: 'Saturday, 10:00 AM', where: 'Impact Hub, Osu' }} />,
+  render: () => (
+    <Harness
+      initial={{
+        id: 'l5',
+        title: 'Meetup in Accra',
+        type: 'in_person',
+        when: 'Saturday, 10:00 AM',
+        where: 'Impact Hub, Osu',
+      }}
+    />
+  ),
 };
 
 /**
@@ -77,12 +133,21 @@ export const TypeSwitchModal: Story = {
   render: () => {
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
-      const tag = Array.from(ref.current?.querySelectorAll<HTMLElement>('span') ?? []).find((el) => el.textContent === 'Video');
+      const tag = Array.from(ref.current?.querySelectorAll<HTMLElement>('span') ?? []).find(
+        (el) => el.textContent === 'Video',
+      );
       tag?.click();
     }, []);
     return (
       <div ref={ref}>
-        <Harness initial={{ id: 'l1', title: 'Why copy matters', type: 'text', body: 'A draft with content that switching away would discard.' }} />
+        <Harness
+          initial={{
+            id: 'l1',
+            title: 'Why copy matters',
+            type: 'text',
+            body: 'A draft with content that switching away would discard.',
+          }}
+        />
       </div>
     );
   },
@@ -91,5 +156,14 @@ export const TypeSwitchModal: Story = {
 /** Text lesson on the light theme. */
 export const Light: Story = {
   globals: { theme: 'light' },
-  render: () => <Harness initial={{ id: 'l1', title: 'Why copy matters', type: 'text', body: 'Good copy is a conversation, not a broadcast…' }} />,
+  render: () => (
+    <Harness
+      initial={{
+        id: 'l1',
+        title: 'Why copy matters',
+        type: 'text',
+        body: 'Good copy is a conversation, not a broadcast…',
+      }}
+    />
+  ),
 };

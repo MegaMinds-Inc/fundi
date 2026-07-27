@@ -67,7 +67,9 @@ async function main(): Promise<void> {
   const existingProgram = await raw.program.findUnique({ where: { id: progSeed.id } });
   if (existingProgram) {
     // eslint-disable-next-line no-console
-    console.log(`[seed:demo] Program "${existingProgram.title}" (${progSeed.id}) already exists — skipping.`);
+    console.log(
+      `[seed:demo] Program "${existingProgram.title}" (${progSeed.id}) already exists — skipping.`,
+    );
     return;
   }
 
@@ -90,7 +92,12 @@ async function main(): Promise<void> {
   });
   if (!mentor) {
     mentor = await raw.mentor.create({
-      data: { organisationId: org.id, name: 'Demo Creator', phone: DEMO_CREATOR_PHONE, role: 'owner' },
+      data: {
+        organisationId: org.id,
+        name: 'Demo Creator',
+        phone: DEMO_CREATOR_PHONE,
+        role: 'owner',
+      },
     });
   }
 

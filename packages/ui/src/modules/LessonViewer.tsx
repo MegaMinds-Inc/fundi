@@ -49,7 +49,9 @@ export interface LessonViewerProps {
 }
 
 function TextLesson({ body }: { body?: string }) {
-  return <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--color-text-body)' }}>{body}</div>;
+  return (
+    <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--color-text-body)' }}>{body}</div>
+  );
 }
 
 /** Convert a YouTube watch/short/youtu.be link to its `/embed/ID` form (query
@@ -118,7 +120,10 @@ function VideoLesson({ videoUrl, duration }: { videoUrl?: string; duration?: str
         position: 'relative',
       }}
     >
-      <i className="ph ph-play-circle" style={{ fontSize: 44, color: 'var(--color-text-muted)', opacity: 0.9 }} />
+      <i
+        className="ph ph-play-circle"
+        style={{ fontSize: 44, color: 'var(--color-text-muted)', opacity: 0.9 }}
+      />
       {duration && (
         <span
           style={{
@@ -140,19 +145,47 @@ function VideoLesson({ videoUrl, duration }: { videoUrl?: string; duration?: str
   );
 }
 
-function AttachmentLesson({ name, size, fileUrl }: { name?: string; size?: string; fileUrl?: string }) {
+function AttachmentLesson({
+  name,
+  size,
+  fileUrl,
+}: {
+  name?: string;
+  size?: string;
+  fileUrl?: string;
+}) {
   const label = name || 'Untitled file';
   const pdf = !!fileUrl && isPdf(name, fileUrl);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <i className="ph ph-file-pdf" style={{ fontSize: 26, color: 'var(--color-accent-teal)' }} />
+          <i
+            className="ph ph-file-pdf"
+            style={{ fontSize: 26, color: 'var(--color-accent-teal)' }}
+          />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--color-text-heading)' }}>
+            <div
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 700,
+                fontSize: 13,
+                color: 'var(--color-text-heading)',
+              }}
+            >
               {label}
             </div>
-            {size && <div style={{ fontSize: 11, color: 'var(--color-text-faint)', fontFamily: 'var(--font-mono)' }}>{size}</div>}
+            {size && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: 'var(--color-text-faint)',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                {size}
+              </div>
+            )}
           </div>
           <Button
             size="sm"
@@ -161,16 +194,30 @@ function AttachmentLesson({ name, size, fileUrl }: { name?: string; size?: strin
             iconOnly
             aria-label={fileUrl ? 'Open file in a new tab' : 'Download'}
             disabled={!fileUrl}
-            onClick={fileUrl ? () => window.open(fileUrl, '_blank', 'noopener,noreferrer') : undefined}
+            onClick={
+              fileUrl ? () => window.open(fileUrl, '_blank', 'noopener,noreferrer') : undefined
+            }
           />
         </div>
       </Card>
       {pdf && (
-        <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--color-border-subtle)' }}>
+        <div
+          style={{
+            borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+            border: '1px solid var(--color-border-subtle)',
+          }}
+        >
           <iframe
             src={fileUrl}
             title={label}
-            style={{ width: '100%', height: 460, border: 0, display: 'block', background: 'var(--color-bg-elevated)' }}
+            style={{
+              width: '100%',
+              height: 460,
+              border: 0,
+              display: 'block',
+              background: 'var(--color-bg-elevated)',
+            }}
           />
         </div>
       )}
@@ -193,7 +240,9 @@ function LiveLesson({ when, where }: { when?: string; where?: string }) {
       <Badge tone="draft" style={{ alignSelf: 'flex-start' }}>
         Live session
       </Badge>
-      <div style={{ fontSize: 13, color: 'var(--color-text-heading)', fontWeight: 600 }}>{when}</div>
+      <div style={{ fontSize: 13, color: 'var(--color-text-heading)', fontWeight: 600 }}>
+        {when}
+      </div>
       <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{where}</div>
     </div>
   );
@@ -201,21 +250,47 @@ function LiveLesson({ when, where }: { when?: string; where?: string }) {
 
 export function LessonViewer({ lesson, onDone }: LessonViewerProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: 'var(--font-body)' }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: 'var(--font-body)' }}
+    >
       <div>
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--color-accent-primary)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+        <div
+          style={{
+            fontSize: 10.5,
+            fontWeight: 700,
+            color: 'var(--color-accent-primary)',
+            textTransform: 'uppercase',
+            letterSpacing: '.08em',
+          }}
+        >
           {lesson.moduleTitle}
         </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 19, color: 'var(--color-text-heading)', marginTop: 4 }}>
+        <div
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 800,
+            fontSize: 19,
+            color: 'var(--color-text-heading)',
+            marginTop: 4,
+          }}
+        >
           {lesson.title}
         </div>
       </div>
       {lesson.type === 'text' && <TextLesson body={lesson.body} />}
-      {lesson.type === 'video' && <VideoLesson videoUrl={lesson.videoUrl} duration={lesson.duration} />}
-      {lesson.type === 'attachment' && (
-        <AttachmentLesson name={lesson.name ?? lesson.fileName} size={lesson.size ?? lesson.fileSize} fileUrl={lesson.fileUrl} />
+      {lesson.type === 'video' && (
+        <VideoLesson videoUrl={lesson.videoUrl} duration={lesson.duration} />
       )}
-      {(lesson.type === 'live_online' || lesson.type === 'in_person') && <LiveLesson when={lesson.when} where={lesson.where} />}
+      {lesson.type === 'attachment' && (
+        <AttachmentLesson
+          name={lesson.name ?? lesson.fileName}
+          size={lesson.size ?? lesson.fileSize}
+          fileUrl={lesson.fileUrl}
+        />
+      )}
+      {(lesson.type === 'live_online' || lesson.type === 'in_person') && (
+        <LiveLesson when={lesson.when} where={lesson.where} />
+      )}
       <Button variant="primary" onClick={onDone}>
         Mark done
       </Button>

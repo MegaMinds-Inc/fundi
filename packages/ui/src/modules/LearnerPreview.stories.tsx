@@ -65,7 +65,13 @@ export const SingleDayUnlock: Story = {
       coverStyle: 'geometric',
       modules: [
         { id: 'a', title: 'Welcome', unlockMode: 'immediate', lessons: [{ id: 'x1' }] },
-        { id: 'b', title: 'Day two drop', unlockMode: 'after_days', unlockDays: 1, lessons: [{ id: 'x2' }] },
+        {
+          id: 'b',
+          title: 'Day two drop',
+          unlockMode: 'after_days',
+          unlockDays: 1,
+          lessons: [{ id: 'x2' }],
+        },
       ],
     },
   },

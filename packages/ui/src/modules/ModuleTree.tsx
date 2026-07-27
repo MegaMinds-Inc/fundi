@@ -50,7 +50,9 @@ export interface ModuleTreeModule {
 }
 
 /** Partial applied to a module — description / unlockMode / unlockDays. */
-export type ModulePatch = Partial<Pick<ModuleTreeModule, 'description' | 'unlockMode' | 'unlockDays'>>;
+export type ModulePatch = Partial<
+  Pick<ModuleTreeModule, 'description' | 'unlockMode' | 'unlockDays'>
+>;
 
 export interface ModuleTreeProps {
   modules: ModuleTreeModule[];
@@ -119,7 +121,11 @@ function LessonRow({ lesson, active, onSelect, onMove, isFirst, isLast }: Lesson
     >
       <i
         className={'ph ' + meta.icon}
-        style={{ fontSize: 14, color: active ? 'var(--color-accent-primary)' : 'var(--color-text-faint)', flex: 'none' }}
+        style={{
+          fontSize: 14,
+          color: active ? 'var(--color-accent-primary)' : 'var(--color-text-faint)',
+          flex: 'none',
+        }}
       />
       <span
         style={{
@@ -140,13 +146,25 @@ function LessonRow({ lesson, active, onSelect, onMove, isFirst, isLast }: Lesson
           onClick={() => !isFirst && onMove(-1)}
           className="ph ph-caret-up"
           aria-label="Move lesson up"
-          style={{ fontSize: 12, padding: 4, color: isFirst ? 'var(--color-text-faint)' : 'var(--color-text-muted)', opacity: isFirst ? 0.3 : 1, cursor: isFirst ? 'default' : 'pointer' }}
+          style={{
+            fontSize: 12,
+            padding: 4,
+            color: isFirst ? 'var(--color-text-faint)' : 'var(--color-text-muted)',
+            opacity: isFirst ? 0.3 : 1,
+            cursor: isFirst ? 'default' : 'pointer',
+          }}
         />
         <i
           onClick={() => !isLast && onMove(1)}
           className="ph ph-caret-down"
           aria-label="Move lesson down"
-          style={{ fontSize: 12, padding: 4, color: isLast ? 'var(--color-text-faint)' : 'var(--color-text-muted)', opacity: isLast ? 0.3 : 1, cursor: isLast ? 'default' : 'pointer' }}
+          style={{
+            fontSize: 12,
+            padding: 4,
+            color: isLast ? 'var(--color-text-faint)' : 'var(--color-text-muted)',
+            opacity: isLast ? 0.3 : 1,
+            cursor: isLast ? 'default' : 'pointer',
+          }}
         />
       </div>
     </div>
@@ -207,9 +225,19 @@ function ModuleBlock({
     <div style={{ marginBottom: 4, opacity: hidden ? 0.72 : 1 }}>
       <div
         onClick={() => !editing && setOpen(!open)}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 10px', cursor: 'pointer', borderRadius: 'var(--radius-md)' }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '10px 10px',
+          cursor: 'pointer',
+          borderRadius: 'var(--radius-md)',
+        }}
       >
-        <i className={'ph ph-caret-' + (open ? 'down' : 'right')} style={{ fontSize: 12, color: 'var(--color-text-faint)', flex: 'none' }} />
+        <i
+          className={'ph ph-caret-' + (open ? 'down' : 'right')}
+          style={{ fontSize: 12, color: 'var(--color-text-faint)', flex: 'none' }}
+        />
         <div style={{ width: 26, height: 26, borderRadius: 7, overflow: 'hidden', flex: 'none' }}>
           <ModuleCover coverStyle={coverStyle} seed={index} height={26} />
         </div>
@@ -269,7 +297,16 @@ function ModuleBlock({
             style={{ fontSize: 13, color: 'var(--base-amber-500)', flex: 'none' }}
           />
         )}
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-faint)', flex: 'none' }}>{module.lessons.length}</span>
+        <span
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            color: 'var(--color-text-faint)',
+            flex: 'none',
+          }}
+        >
+          {module.lessons.length}
+        </span>
         <span
           onClick={(e) => {
             e.stopPropagation();
@@ -278,7 +315,12 @@ function ModuleBlock({
           role="button"
           aria-label="Module settings"
           aria-expanded={settingsOpen}
-          style={{ cursor: 'pointer', padding: 4, flex: 'none', color: settingsOpen ? 'var(--color-accent-primary)' : 'var(--color-text-faint)' }}
+          style={{
+            cursor: 'pointer',
+            padding: 4,
+            flex: 'none',
+            color: settingsOpen ? 'var(--color-accent-primary)' : 'var(--color-text-faint)',
+          }}
           title="Module settings"
         >
           <i className="ph ph-faders-horizontal" style={{ fontSize: 13 }} />
@@ -288,18 +330,37 @@ function ModuleBlock({
             onClick={() => index > 0 && onMoveModule(-1)}
             className="ph ph-caret-up"
             aria-label="Move module up"
-            style={{ fontSize: 12, padding: 4, opacity: index === 0 ? 0.3 : 1, color: 'var(--color-text-muted)', cursor: index === 0 ? 'default' : 'pointer' }}
+            style={{
+              fontSize: 12,
+              padding: 4,
+              opacity: index === 0 ? 0.3 : 1,
+              color: 'var(--color-text-muted)',
+              cursor: index === 0 ? 'default' : 'pointer',
+            }}
           />
           <i
             onClick={() => index < total - 1 && onMoveModule(1)}
             className="ph ph-caret-down"
             aria-label="Move module down"
-            style={{ fontSize: 12, padding: 4, opacity: index === total - 1 ? 0.3 : 1, color: 'var(--color-text-muted)', cursor: index === total - 1 ? 'default' : 'pointer' }}
+            style={{
+              fontSize: 12,
+              padding: 4,
+              opacity: index === total - 1 ? 0.3 : 1,
+              color: 'var(--color-text-muted)',
+              cursor: index === total - 1 ? 'default' : 'pointer',
+            }}
           />
         </div>
       </div>
       {settingsOpen && (
-        <div style={{ padding: '4px 10px 16px 34px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div
+          style={{
+            padding: '4px 10px 16px 34px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
           <div>
             <div style={uppercaseLabel}>Description</div>
             <textarea
@@ -359,11 +420,21 @@ function ModuleBlock({
               {/* ADR-014 `hidden` visibility gate — deliberately set apart from the
                   green timing pills above: a divider, an amber hue, and an
                   eye-slash icon signal it gates visibility rather than schedules. */}
-              <span aria-hidden style={{ width: 1, height: 18, background: 'var(--color-border-subtle)', margin: '0 2px' }} />
+              <span
+                aria-hidden
+                style={{
+                  width: 1,
+                  height: 18,
+                  background: 'var(--color-border-subtle)',
+                  margin: '0 2px',
+                }}
+              />
               <Tag
                 selected={hidden}
                 color={hidden ? 'amber' : 'neutral'}
-                onClick={() => onUpdateModule(module.id, { unlockMode: hidden ? 'immediate' : 'hidden' })}
+                onClick={() =>
+                  onUpdateModule(module.id, { unlockMode: hidden ? 'immediate' : 'hidden' })
+                }
               >
                 <i className="ph ph-eye-slash" style={{ fontSize: 12 }} /> Hidden
               </Tag>
@@ -386,7 +457,15 @@ function ModuleBlock({
           ))}
           <div
             onClick={onAddLesson}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px 8px 34px', cursor: 'pointer', color: 'var(--color-text-faint)', fontSize: 11.5 }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 10px 8px 34px',
+              cursor: 'pointer',
+              color: 'var(--color-text-faint)',
+              fontSize: 11.5,
+            }}
           >
             <i className="ph ph-plus" style={{ fontSize: 12 }} /> Add lesson
           </div>
@@ -416,7 +495,12 @@ export function ModuleTree({
           title="Start with your first module"
           body="Modules group related lessons together — add one to begin structuring this program."
         />
-        <Button variant="primary" onClick={onAddModule} icon={<i className="ph ph-plus-circle" />} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
+        <Button
+          variant="primary"
+          onClick={onAddModule}
+          icon={<i className="ph ph-plus-circle" />}
+          style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
+        >
           Add module
         </Button>
       </div>
@@ -443,7 +527,18 @@ export function ModuleTree({
       ))}
       <div
         onClick={onAddModule}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 10px', cursor: 'pointer', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 12, marginTop: 6 }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '11px 10px',
+          cursor: 'pointer',
+          color: 'var(--color-accent-primary)',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 700,
+          fontSize: 12,
+          marginTop: 6,
+        }}
       >
         <i className="ph ph-plus-circle" style={{ fontSize: 15 }} /> Add module
       </div>

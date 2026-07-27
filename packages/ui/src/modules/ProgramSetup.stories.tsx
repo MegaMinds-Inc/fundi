@@ -31,14 +31,23 @@ export const Empty: Story = {
 
 /** Partially filled — everything but visibility, so Continue is still disabled. */
 export const PartiallyFilled: Story = {
-  render: () => <Harness initial={{ title: 'Copywriting for Creators', shape: 'cohort', coverStyle: 'geometric' }} />,
+  render: () => (
+    <Harness
+      initial={{ title: 'Copywriting for Creators', shape: 'cohort', coverStyle: 'geometric' }}
+    />
+  ),
 };
 
 /** Fully valid — Continue is enabled. */
 export const Filled: Story = {
   render: () => (
     <Harness
-      initial={{ title: 'Copywriting for Creators', shape: 'self_paced', visibility: 'public', coverStyle: 'gradient' }}
+      initial={{
+        title: 'Copywriting for Creators',
+        shape: 'self_paced',
+        visibility: 'public',
+        coverStyle: 'gradient',
+      }}
     />
   ),
 };
@@ -48,7 +57,12 @@ export const Light: Story = {
   globals: { theme: 'light' },
   render: () => (
     <Harness
-      initial={{ title: 'Copywriting for Creators', shape: 'workshop', visibility: 'private', coverStyle: 'geometric' }}
+      initial={{
+        title: 'Copywriting for Creators',
+        shape: 'workshop',
+        visibility: 'private',
+        coverStyle: 'geometric',
+      }}
     />
   ),
 };

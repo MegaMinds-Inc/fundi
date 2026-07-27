@@ -17,10 +17,42 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const PROGRAMS: ProgramCardData[] = [
-  { id: 'p1', title: 'Copywriting for Creators', status: 'published', coverStyle: 'gradient', seed: 0, moduleCount: 6, learnerCount: 42 },
-  { id: 'p2', title: 'Ship Your First Newsletter', status: 'draft', coverStyle: 'geometric', seed: 1, moduleCount: 3, learnerCount: 0 },
-  { id: 'p3', title: 'Cohort-Based Course Design', status: 'published', coverStyle: 'geometric', seed: 2, moduleCount: 8, learnerCount: 1 },
-  { id: 'p4', title: 'Freelance Foundations', status: 'draft', coverStyle: 'gradient', seed: 2, moduleCount: 1, learnerCount: 0 },
+  {
+    id: 'p1',
+    title: 'Copywriting for Creators',
+    status: 'published',
+    coverStyle: 'gradient',
+    seed: 0,
+    moduleCount: 6,
+    learnerCount: 42,
+  },
+  {
+    id: 'p2',
+    title: 'Ship Your First Newsletter',
+    status: 'draft',
+    coverStyle: 'geometric',
+    seed: 1,
+    moduleCount: 3,
+    learnerCount: 0,
+  },
+  {
+    id: 'p3',
+    title: 'Cohort-Based Course Design',
+    status: 'published',
+    coverStyle: 'geometric',
+    seed: 2,
+    moduleCount: 8,
+    learnerCount: 1,
+  },
+  {
+    id: 'p4',
+    title: 'Freelance Foundations',
+    status: 'draft',
+    coverStyle: 'gradient',
+    seed: 2,
+    moduleCount: 1,
+    learnerCount: 0,
+  },
 ];
 
 /** No programs yet — the EmptyState with the "Create your first program" CTA. */

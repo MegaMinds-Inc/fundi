@@ -62,7 +62,13 @@ const placeholderPanel = {
   fontSize: 12.5,
 };
 
-function ProgramCard({ program, onOpen }: { program: ProgramCardData; onOpen: (id: string) => void }) {
+function ProgramCard({
+  program,
+  onOpen,
+}: {
+  program: ProgramCardData;
+  onOpen: (id: string) => void;
+}) {
   const coverStyle: CoverStyle = program.coverStyle === 'geometric' ? 'geometric' : 'gradient';
   return (
     <div
@@ -94,11 +100,26 @@ function ProgramCard({ program, onOpen }: { program: ProgramCardData; onOpen: (i
             {program.status === 'published' ? 'Published' : 'Draft'}
           </Badge>
         </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14.5, color: 'var(--color-text-heading)' }}>
+        <div
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            fontSize: 14.5,
+            color: 'var(--color-text-heading)',
+          }}
+        >
           {program.title}
         </div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--color-text-faint)', marginTop: 5 }}>
-          {program.moduleCount} module{program.moduleCount === 1 ? '' : 's'} · {program.learnerCount} learner
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10.5,
+            color: 'var(--color-text-faint)',
+            marginTop: 5,
+          }}
+        >
+          {program.moduleCount} module{program.moduleCount === 1 ? '' : 's'} ·{' '}
+          {program.learnerCount} learner
           {program.learnerCount === 1 ? '' : 's'}
         </div>
       </div>
@@ -118,9 +139,23 @@ export function ProgramsHome({
   const hasPrograms = programs.length > 0;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-bg-canvas)', fontFamily: 'var(--font-body)' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'var(--color-bg-canvas)',
+        fontFamily: 'var(--font-body)',
+      }}
+    >
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 24px 90px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 26, gap: 14 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            marginBottom: 26,
+            gap: 14,
+          }}
+        >
           <div>
             <div
               style={{
@@ -134,7 +169,15 @@ export function ProgramsHome({
             >
               Creator
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, letterSpacing: '-0.02em', color: 'var(--color-text-heading)' }}>
+            <div
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 800,
+                fontSize: 26,
+                letterSpacing: '-0.02em',
+                color: 'var(--color-text-heading)',
+              }}
+            >
               Your programs
             </div>
           </div>
@@ -176,25 +219,48 @@ export function ProgramsHome({
           (hasPrograms ? (
             <>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18 }}>
-                <Button variant="primary" size="md" onClick={onNewProgram} icon={<i className="ph ph-plus" />}>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={onNewProgram}
+                  icon={<i className="ph ph-plus" />}
+                >
                   New program
                 </Button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 18 }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                  gap: 18,
+                }}
+              >
                 {programs.map((p) => (
                   <ProgramCard key={p.id} program={p} onOpen={onOpenProgram} />
                 ))}
               </div>
             </>
           ) : (
-            <div style={{ border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-xl)', background: 'var(--color-bg-surface)', padding: '48px 30px' }}>
+            <div
+              style={{
+                border: '1px solid var(--color-border-subtle)',
+                borderRadius: 'var(--radius-xl)',
+                background: 'var(--color-bg-surface)',
+                padding: '48px 30px',
+              }}
+            >
               <EmptyState
                 icon="ph-stack"
                 title="Nothing built yet"
                 body="Turn what you teach into a structured program learners move through, delivered mostly over WhatsApp. Start with your first one."
               />
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                <Button variant="primary" size="lg" onClick={onNewProgram} icon={<i className="ph ph-plus" />}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={onNewProgram}
+                  icon={<i className="ph ph-plus" />}
+                >
                   Create your first program
                 </Button>
               </div>
@@ -205,16 +271,30 @@ export function ProgramsHome({
           (cohortsSlot !== undefined ? (
             cohortsSlot
           ) : hasPrograms ? (
-            <div style={placeholderPanel}>Cohort scheduling &amp; roster — next up in the build queue.</div>
+            <div style={placeholderPanel}>
+              Cohort scheduling &amp; roster — next up in the build queue.
+            </div>
           ) : (
-            <div style={{ border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-xl)', background: 'var(--color-bg-surface)', padding: '48px 30px' }}>
+            <div
+              style={{
+                border: '1px solid var(--color-border-subtle)',
+                borderRadius: 'var(--radius-xl)',
+                background: 'var(--color-bg-surface)',
+                padding: '48px 30px',
+              }}
+            >
               <EmptyState
                 icon="ph-users-three"
                 title="No cohorts yet"
                 body="Cohorts live inside a program — create a program first, then invite learners into it."
               />
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                <Button variant="secondary" size="md" onClick={onNewProgram} icon={<i className="ph ph-plus" />}>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={onNewProgram}
+                  icon={<i className="ph ph-plus" />}
+                >
                   Create a program
                 </Button>
               </div>
@@ -225,7 +305,9 @@ export function ProgramsHome({
           (needsYouSlot !== undefined ? (
             needsYouSlot
           ) : (
-            <div style={placeholderPanel}>Nothing needs you right now — the full triage queue lives under Needs You.</div>
+            <div style={placeholderPanel}>
+              Nothing needs you right now — the full triage queue lives under Needs You.
+            </div>
           ))}
       </div>
     </div>

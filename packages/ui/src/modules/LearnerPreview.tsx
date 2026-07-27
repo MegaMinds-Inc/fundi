@@ -58,7 +58,14 @@ export function LearnerPreview({ program }: LearnerPreviewProps) {
   const visible = program.modules.filter((m) => m.unlockMode !== 'hidden');
 
   return (
-    <div style={{ maxWidth: 460, margin: '0 auto', padding: '32px 20px', fontFamily: 'var(--font-body)' }}>
+    <div
+      style={{
+        maxWidth: 460,
+        margin: '0 auto',
+        padding: '32px 20px',
+        fontFamily: 'var(--font-body)',
+      }}
+    >
       <div
         style={{
           fontSize: 10.5,
@@ -127,12 +134,37 @@ export function LearnerPreview({ program }: LearnerPreviewProps) {
               )}
             </div>
             <div style={{ padding: '13px 16px' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13.5, color: 'var(--color-text-heading)' }}>{m.title}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--color-text-faint)', marginTop: 4 }}>
+              <div
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  color: 'var(--color-text-heading)',
+                }}
+              >
+                {m.title}
+              </div>
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10.5,
+                  color: 'var(--color-text-faint)',
+                  marginTop: 4,
+                }}
+              >
                 {m.lessons.length} lesson{m.lessons.length === 1 ? '' : 's'}
               </div>
               {m.description && (
-                <div style={{ fontSize: 11.5, color: 'var(--color-text-muted)', marginTop: 6, lineHeight: 1.5 }}>{m.description}</div>
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    color: 'var(--color-text-muted)',
+                    marginTop: 6,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {m.description}
+                </div>
               )}
             </div>
           </div>

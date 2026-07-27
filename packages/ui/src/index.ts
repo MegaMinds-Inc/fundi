@@ -103,14 +103,22 @@ export { LessonEditor } from './modules/LessonEditor';
 export type { LessonEditorProps, EditableLesson } from './modules/LessonEditor';
 
 export { LessonViewer } from './modules/LessonViewer';
-export type { LessonViewerProps, LessonViewerLesson, LessonViewerType } from './modules/LessonViewer';
+export type {
+  LessonViewerProps,
+  LessonViewerLesson,
+  LessonViewerType,
+} from './modules/LessonViewer';
 
 // Program builder stage-3 (feature 0012 slice 3) — publish + learner preview
 export { PublishBar } from './modules/PublishBar';
 export type { PublishBarProps, PublishBarProgram, ProgramStatus } from './modules/PublishBar';
 
 export { LearnerPreview } from './modules/LearnerPreview';
-export type { LearnerPreviewProps, LearnerPreviewProgram, LearnerPreviewModule } from './modules/LearnerPreview';
+export type {
+  LearnerPreviewProps,
+  LearnerPreviewProgram,
+  LearnerPreviewModule,
+} from './modules/LearnerPreview';
 
 export { PhoneInput, DEFAULT_PHONE_REGION, DEFAULT_DIAL_CODE } from './modules/PhoneInput';
 export type { PhoneInputProps } from './modules/PhoneInput';
