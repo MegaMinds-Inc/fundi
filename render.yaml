@@ -1,7 +1,7 @@
 # Render Blueprint — hosts apps/api (NestJS) as a single web service.
 # The database lives on Supabase (managed Postgres); this repo has no DB service.
 # New → Blueprint in the Render dashboard, point at this repo, then fill the
-# three `sync: false` secrets. See packages/docs (Render + Supabase deploy notes).
+# `sync: false` secrets. See packages/docs (Render + Supabase deploy notes).
 services:
   - type: web
     name: fundi-api
@@ -45,6 +45,28 @@ services:
       # https://creator.example.com,https://learn.example.com
       - key: CORS_ORIGINS
         sync: false
+      # Auth secrets — the API refuses to boot in production without these
+      # (resolveJwtSecret / resolvePinPepper, auth.constants.ts). Values are
+      # pushed by the Deploy (Dev) workflow from GitHub `dev` Environment secrets.
+      - key: JWT_SECRET
+        sync: false
+      - key: PIN_PEPPER
+        sync: false
+      # Real OTP delivery via Vynfy so users can log in on the deploy.
+      - key: OTP_DELIVERY_DRIVER
+        value: sms
+      - key: SMS_PROVIDER
+        value: vynfy
+      - key: SMS_SENDER_ID
+        sync: false
+      - key: VYNFY_API_KEY
+        sync: false
+      - key: VYNFY_BASE_URL
+        value: https://sms.vynfy.com
+      - key: VYNFY_SANDBOX
+        value: 'false'
+    # NODE_ENV is injected by Render at runtime — do NOT set it here (it would
+    # also apply at build time and can make pnpm skip devDependencies).
     # PORT is injected by Render automatically and read in src/main.ts — do not set it.
 
   # Static component explorer for @fundi/ui (the design system) — see ADR-ENG-0001

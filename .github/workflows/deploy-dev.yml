@@ -58,20 +58,42 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+          # Auth secrets — the API fail-fasts in production without these
+          # (resolveJwtSecret / resolvePinPepper in auth.constants.ts).
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
+          # Real OTP delivery (Vynfy) so users can actually log in on the deploy.
+          SMS_SENDER_ID: ${{ secrets.SMS_SENDER_ID }}
+          VYNFY_API_KEY: ${{ secrets.VYNFY_API_KEY }}
         run: |
           set -euo pipefail
 
           # Build the env-var payload with jq so secret values (which contain
           # :, /, ?, & ...) are quoted safely — never string-interpolated.
+          # NODE_ENV is NOT set here on purpose — Render injects it at runtime,
+          # and putting it in the (build-time) env set can make pnpm skip
+          # devDependencies and break the build.
           payload=$(jq -n \
             --arg node "24.18.0" \
             --arg db "$DATABASE_URL" \
             --arg direct "$DIRECT_URL" \
             --arg cors "$CORS_ORIGINS" \
+            --arg jwt "$JWT_SECRET" \
+            --arg pepper "$PIN_PEPPER" \
+            --arg sender "$SMS_SENDER_ID" \
+            --arg vynfykey "$VYNFY_API_KEY" \
             '[{key:"NODE_VERSION",value:$node},
               {key:"DATABASE_URL",value:$db},
               {key:"DIRECT_URL",value:$direct},
-              {key:"CORS_ORIGINS",value:$cors}]')
+              {key:"CORS_ORIGINS",value:$cors},
+              {key:"JWT_SECRET",value:$jwt},
+              {key:"PIN_PEPPER",value:$pepper},
+              {key:"OTP_DELIVERY_DRIVER",value:"sms"},
+              {key:"SMS_PROVIDER",value:"vynfy"},
+              {key:"SMS_SENDER_ID",value:$sender},
+              {key:"VYNFY_API_KEY",value:$vynfykey},
+              {key:"VYNFY_BASE_URL",value:"https://sms.vynfy.com"},
+              {key:"VYNFY_SANDBOX",value:"false"}]')
 
           echo "Syncing env vars to Render service $RENDER_SERVICE_ID"
           curl -fsS -X PUT \
