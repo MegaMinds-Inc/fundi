@@ -58,7 +58,7 @@ services:
       - key: SMS_PROVIDER
         value: vynfy
       - key: SMS_SENDER_ID
-        sync: false
+        value: Fundi
       - key: VYNFY_API_KEY
         sync: false
       - key: VYNFY_BASE_URL

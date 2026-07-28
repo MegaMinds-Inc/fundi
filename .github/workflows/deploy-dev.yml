@@ -63,7 +63,6 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
           # Real OTP delivery (Vynfy) so users can actually log in on the deploy.
-          SMS_SENDER_ID: ${{ secrets.SMS_SENDER_ID }}
           VYNFY_API_KEY: ${{ secrets.VYNFY_API_KEY }}
         run: |
           set -euo pipefail
@@ -80,7 +79,6 @@ jobs:
             --arg cors "$CORS_ORIGINS" \
             --arg jwt "$JWT_SECRET" \
             --arg pepper "$PIN_PEPPER" \
-            --arg sender "$SMS_SENDER_ID" \
             --arg vynfykey "$VYNFY_API_KEY" \
             '[{key:"NODE_VERSION",value:$node},
               {key:"DATABASE_URL",value:$db},
@@ -90,7 +88,7 @@ jobs:
               {key:"PIN_PEPPER",value:$pepper},
               {key:"OTP_DELIVERY_DRIVER",value:"sms"},
               {key:"SMS_PROVIDER",value:"vynfy"},
-              {key:"SMS_SENDER_ID",value:$sender},
+              {key:"SMS_SENDER_ID",value:"Fundi"},
               {key:"VYNFY_API_KEY",value:$vynfykey},
               {key:"VYNFY_BASE_URL",value:"https://sms.vynfy.com"},
               {key:"VYNFY_SANDBOX",value:"false"}]')
